@@ -1,6 +1,7 @@
 streamlit
 pandas
+altair
 scikit-learn
 requests
-altair
 openpyxl
+psycopg2-binary
