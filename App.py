@@ -99,12 +99,10 @@ def approvers(stage, tier):
     if tier == "prohibited":
         return []
     req = ["model_owner"]
-    if tier in ("medium", "high", "very_high") and stage in GATE_STAGES:
+    if tier in ("medium", "high") and stage in GATE_STAGES:
         req += ["privacy_reviewer", "risk_reviewer"]
-    if tier in ("high", "very_high") and stage in GATE_STAGES:
-        req += ["legal_reviewer", "review_board"]
-    if tier == "very_high" and stage in GATE_STAGES:
-        req += ["governance_admin"]
+    if tier == "high" and stage in GATE_STAGES:
+        req += ["legal_reviewer", "review_board", "governance_admin"]
     return req
 
 REGS = [
@@ -210,15 +208,14 @@ def log(actor, action, uc=None, detail=""):
 WEIGHTS = {"Impact": 16, "People": 14, "Data": 12, "Automation": 12, "Scale": 10,
            "Reversibility": 12, "Technical uncertainty": 8, "Misuse": 8, "Dependency": 8}
 CRITICAL = ["Impact", "People", "Reversibility", "Automation"]   # a rating of 3 here is serious on its own
-BANDS = [(30, "low"), (55, "medium"), (80, "high"), (101, "very_high")]   # upper bound (exclusive) and tier
-TIER_LABEL = {"low": "LOW", "medium": "MEDIUM", "high": "HIGH", "very_high": "VERY HIGH", "prohibited": "PROHIBITED"}
-TIER_ORDER = ["prohibited", "very_high", "high", "medium", "low"]
+BANDS = [(30, "low"), (55, "medium"), (101, "high")]   # upper bound (exclusive) and tier
+TIER_LABEL = {"low": "MINIMAL", "medium": "LIMITED", "high": "HIGH", "prohibited": "UNACCEPTABLE"}
+TIER_ORDER = ["prohibited", "high", "medium", "low"]
 TIER_MEANING = {
-    "low": "Routine oversight. Owner sign-off only, review every 24 months.",
-    "medium": "Privacy and risk review at the gates, review every 12 months.",
-    "high": "Privacy, risk, legal and review board sign-off at the gates, review every 6 months.",
-    "very_high": "All High controls plus governance admin sign-off, review every 3 months.",
-    "prohibited": "Cannot proceed. Stop and escalate to legal.",
+    "low": "Minimal risk. Owner sign-off only, review every 24 months.",
+    "medium": "Limited risk. Privacy and risk review at the gates, transparency duties apply, review every 12 months.",
+    "high": "High risk. Privacy, risk, legal, review board and governance admin sign-off at the gates, review every 6 months.",
+    "prohibited": "Unacceptable risk. Prohibited practice: cannot proceed, stop and escalate to legal.",
 }
 
 def score100(scores):
@@ -244,8 +241,6 @@ def classify(prohibited, triggers, scores, geo_pts=0):
         why += [f"Regulatory trigger: {t}" for t in triggers]
         if tier in ("low", "medium"):
             tier = "high"; why.append("Floor to HIGH: a regulatory trigger applies")
-    if triggers and len(crit3) >= 2 and s >= 65 and tier == "high":
-        tier = "very_high"; why.append("Escalated to VERY HIGH: a trigger, two or more critical dimensions at 3, and score 65 or more")
     return tier, s, why
 
 def auto_triggers(trig, data, geos):
@@ -479,7 +474,7 @@ def advance(u, actor):
     if u["stage"] == 10:
         c.execute("update use_cases set status='retired' where id=?", (u["id"],))
     elif u["stage"] == 6:
-        months = {"very_high": 3, "high": 6, "medium": 12}.get(u["tier"], 24)
+        months = {"high": 6, "medium": 12}.get(u["tier"], 24)
         nxt = (dt.date.today() + dt.timedelta(days=30 * months)).isoformat()
         c.execute("update use_cases set stage=7, status='production', next_review=? where id=?", (nxt, u["id"]))
     else:
@@ -549,7 +544,7 @@ def generate_questions(desc, domain):
     return bank_questions(desc + " " + domain), "built-in question bank"
 
 # ---------- look and feel ----------
-TIER_COL = {"low": "#2e7d5b", "medium": "#b7791f", "high": "#c2570c", "very_high": "#b42318", "prohibited": "#5b3a8c"}
+TIER_COL = {"low": "#2e7d5b", "medium": "#b7791f", "high": "#b42318", "prohibited": "#5b3a8c"}
 ACCENT = "#e8590c"
 CSS = """
 <style>
@@ -656,8 +651,7 @@ div[data-testid="stAlert"] {border-radius:8px;}
 .badge {display:inline-block; padding:2px 9px; border-radius:4px; font-size:.66rem; font-weight:700; letter-spacing:.06em; border:1px solid;}
 .low {color:#1b5e43; border-color:#9fd3bb; background:#ecf7f1;}
 .medium {color:#7a4f0d; border-color:#e5c98a; background:#fbf5e6;}
-.high {color:#8f3d08; border-color:#efb48a; background:#fdf1e7;}
-.very_high {color:#8e1c12; border-color:#eba39b; background:#fdecea;}
+.high {color:#8e1c12; border-color:#eba39b; background:#fdecea;}
 .prohibited {color:#4a2d75; border-color:#c3b0e0; background:#f3eefa;}
 
 /* stage tracker */
@@ -738,12 +732,12 @@ def landing():
                 "<p>One place to register every AI system, classify its risk with transparent rules, screen it against "
                 "the laws and frameworks you choose, such as the EU AI Act, GDPR, DPDP Act, NIST AI RMF and ISO 42001, and take it through approval gates with a full audit trail.</p>"
                 "<div class='stats'><div><b>20</b><span>Frameworks</span></div><div><b>47</b><span>Legal provisions</span></div>"
-                "<div><b>10</b><span>Lifecycle stages</span></div><div><b>5</b><span>Risk tiers</span></div></div></div>",
+                "<div><b>10</b><span>Lifecycle stages</span></div><div><b>4</b><span>Risk tiers</span></div></div></div>",
                 unsafe_allow_html=True)
     st.write("")
     cols = st.columns(4)
     feats = [("01", "Register", "Describe a use case and get questions tailored to it."),
-             ("02", "Classify", "Deterministic 0 to 100 score and five tiers, from Low to Prohibited, with reasons."),
+             ("02", "Classify", "Deterministic 0 to 100 score and the EU AI Act's four tiers, from Minimal to Unacceptable, with reasons."),
              ("03", "Screen", "Pick the laws in scope; the app retrieves their clauses and AI explains, never decides."),
              ("04", "Govern", "10 lifecycle stages, approvals, incidents, reviews and an audit log.")]
     for col, (n, h, t) in zip(cols, feats):
@@ -753,7 +747,6 @@ def landing():
         st.session_state["entered"] = True; st.rerun()
     st.caption("AI-assisted risk screening, not legal advice.")
 
-
 def collect_alerts(c, ucs):
     today = dt.date.today().isoformat()
     reviews = [u for u in ucs if u["next_review"] and u["next_review"] < today and u["status"] == "production"]
@@ -762,7 +755,6 @@ def collect_alerts(c, ucs):
     acts = c.execute("select a.action, a.owner, a.due, u.code, u.name from actions a join use_cases u on u.id=a.uc where a.status='open' and a.due < ? order by a.due", (today,)).fetchall()
     return dict(reviews=reviews, incidents=inc_high, incidents_all=inc_all, actions=acts,
                 total=len(reviews) + len(inc_high) + len(acts))
-
 
 def alert_card(kind, title, sub, meta):
     return (f"<div class='acard {kind}'><div class='aico'></div><div class='abody'><div class='atitle'>{E(title)}</div>"
@@ -799,7 +791,7 @@ def page_dashboard(c, ucs):
         st.info("No systems yet - register one."); return
     today = dt.date.today().isoformat()
     al = collect_alerts(c, ucs)
-    hp = int(df["tier"].isin(["very_high", "high", "prohibited"]).sum())
+    hp = int(df["tier"].isin(["high", "prohibited"]).sum())
     st.markdown("<div class='kpis'>" +
                 kpi("AI systems", len(df), "#1f2933", "") +
                 kpi("High and above", hp, "#b42318", "") +
