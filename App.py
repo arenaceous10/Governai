@@ -99,35 +99,62 @@ def approvers(stage, tier):
     if tier == "prohibited":
         return []
     req = ["model_owner"]
-    if tier in ("medium", "high") and stage in GATE_STAGES:
+    if tier in ("medium", "high", "very_high") and stage in GATE_STAGES:
         req += ["privacy_reviewer", "risk_reviewer"]
-    if tier == "high" and stage in GATE_STAGES:
+    if tier in ("high", "very_high") and stage in GATE_STAGES:
         req += ["legal_reviewer", "review_board"]
+    if tier == "very_high" and stage in GATE_STAGES:
+        req += ["governance_admin"]
     return req
 
 REGS = [
-    ("EU AI Act", "Art. 5", "Prohibited AI practices: social scoring, manipulation, exploiting vulnerabilities, untargeted facial scraping, emotion recognition at work or school, predictive policing on profiling."),
-    ("EU AI Act", "Art. 6 & Annex III", "High-risk AI includes employment and recruitment, credit scoring, life and health insurance pricing, education, essential services, biometrics."),
-    ("EU AI Act", "Art. 9", "High-risk systems need a continuous risk management system across the lifecycle."),
-    ("EU AI Act", "Art. 10", "Training data must be relevant, representative, examined for bias, with data governance practices."),
-    ("EU AI Act", "Art. 13-14", "Transparency to deployers and effective human oversight for high-risk systems."),
-    ("EU AI Act", "Art. 50", "Users must be told they are interacting with an AI chatbot; AI-generated content must be labelled."),
-    ("GDPR", "Art. 5", "Personal data principles: lawfulness, purpose limitation, data minimisation, accuracy, storage limitation."),
-    ("GDPR", "Art. 9", "Special category data such as health or biometric data requires an explicit legal condition."),
-    ("GDPR", "Art. 22", "Right not to be subject to solely automated decisions with legal or significant effects; right to human review."),
-    ("GDPR", "Art. 35", "Data protection impact assessment required for high-risk processing such as large-scale profiling."),
-    ("UK GDPR", "Art. 22", "UK equivalent safeguards on solely automated decision-making and profiling."),
-    ("DPDP Act 2023", "Sec. 4-7", "Personal data processed only for lawful purpose with notice and free, specific, informed consent or legitimate use."),
-    ("DPDP Act 2023", "Sec. 8", "Data fiduciary must ensure accuracy, security safeguards, breach notification and erasure."),
-    ("DPDP Act 2023", "Sec. 9", "Children's data needs verifiable parental consent; no tracking or targeted advertising to children."),
-    ("HIPAA", "Privacy Rule", "Protected health information use and disclosure limited; minimum necessary standard."),
-    ("NIST AI RMF", "Govern/Map/Measure/Manage", "Voluntary framework: govern culture, map context and risks, measure trustworthiness, manage and monitor risks."),
-    ("EU AI Act", "Annex III 5(c)", "AI used for risk assessment and pricing of natural persons in life and health insurance is high-risk."),
-    ("EU AI Act", "Art. 26-27", "Deployers of high-risk AI must follow instructions, assign human oversight, keep logs, inform affected people and, for insurance and credit, run a fundamental rights impact assessment."),
-    ("FCA Consumer Duty", "PRIN 2A", "Firms must deliver good outcomes for retail customers: fair value, products that meet needs, understandable communications and support; avoid foreseeable harm, especially to vulnerable customers."),
-    ("FCA Consumer Duty", "Pricing practices (ICOBS 6B)", "Home and motor renewal prices must not exceed the equivalent new business price; no price walking of loyal customers."),
-    ("Equality Act 2010", "s.19 & s.29", "Indirect discrimination: a pricing, claims or eligibility rule that disadvantages people with a protected characteristic (age, disability, race, sex, religion etc.) is unlawful unless objectively justified. Proxy variables such as postcode can cause it."),
-    ("ISO/IEC 42001", "AI management system", "Management system standard for AI: policy, roles, risk assessment, impact assessment, continual improvement."),
+    ('EU AI Act', 'Art. 4', 'AI literacy: providers and deployers must ensure staff operating AI systems have a sufficient level of AI literacy.'),
+    ('EU AI Act', 'Art. 5', 'Prohibited AI practices: social scoring, manipulative or subliminal techniques, exploiting vulnerabilities, untargeted facial image scraping, emotion recognition at work or school, real-time remote biometric identification in public, predictive policing based solely on profiling. Fines up to 7% of worldwide turnover or EUR 35 million.'),
+    ('EU AI Act', 'Art. 6 & Annex III', 'High-risk AI includes employment and recruitment, credit scoring and creditworthiness, life and health insurance risk assessment and pricing, education, access to essential private and public services, biometrics, law enforcement, migration and justice. Stand-alone Annex III obligations apply from 2 December 2027 following the Digital Omnibus.'),
+    ('EU AI Act', 'Art. 9', 'High-risk systems need a documented risk management system running through the whole lifecycle.'),
+    ('EU AI Act', 'Art. 10', 'Training, validation and test data must be relevant, representative, examined for bias and governed by documented data governance practices.'),
+    ('EU AI Act', 'Art. 11-12', 'Technical documentation must be kept up to date and high-risk systems must automatically log events for traceability.'),
+    ('EU AI Act', 'Art. 13-14', 'Transparency and instructions for deployers, and effective human oversight designed into high-risk systems.'),
+    ('EU AI Act', 'Art. 15', 'High-risk systems must achieve appropriate accuracy, robustness and cybersecurity.'),
+    ('EU AI Act', 'Art. 26-27', 'Deployers of high-risk AI must follow instructions, assign competent human oversight, keep logs, inform affected people and, for credit and insurance, run a fundamental rights impact assessment.'),
+    ('EU AI Act', 'Art. 50', 'Users must be told they are interacting with an AI system; AI-generated or manipulated content must be marked. Art. 50 applies from 2 August 2026.'),
+    ('EU AI Act', 'Annex III 5(c)', 'AI for risk assessment and pricing of natural persons in life and health insurance is high-risk.'),
+    ('EU AI Act', 'Art. 53 (GPAI)', 'Providers of general-purpose AI models must keep technical documentation, publish a training-content summary and respect EU copyright law.'),
+    ('GDPR', 'Art. 5', 'Personal data principles: lawfulness, fairness and transparency, purpose limitation, data minimisation, accuracy, storage limitation, integrity and confidentiality, accountability.'),
+    ('GDPR', 'Art. 6', 'Processing needs a lawful basis: consent, contract, legal obligation, vital interests, public task or legitimate interests.'),
+    ('GDPR', 'Art. 9', 'Special category data such as health, biometric or genetic data requires an explicit condition under Art. 9(2).'),
+    ('GDPR', 'Art. 13-15', 'People must be told about processing, including meaningful information about the logic involved in automated decisions, and can access their data.'),
+    ('GDPR', 'Art. 22', 'Right not to be subject to solely automated decisions with legal or similarly significant effects; right to human intervention, to express a view and to contest.'),
+    ('GDPR', 'Art. 25', 'Data protection by design and by default: build minimisation and privacy controls into the system.'),
+    ('GDPR', 'Art. 32-34', 'Appropriate security measures and breach notification to the regulator within 72 hours where there is risk to people.'),
+    ('GDPR', 'Art. 35', 'A data protection impact assessment is required for high-risk processing such as large-scale profiling or systematic automated evaluation.'),
+    ('GDPR', 'Art. 44-49', 'Transfers of personal data outside the EEA need an adequacy decision, standard contractual clauses or another safeguard.'),
+    ('UK GDPR', 'Art. 22', 'UK safeguards on solely automated decision-making and profiling, as reformed by the Data (Use and Access) Act 2025.'),
+    ('UK GDPR', 'Art. 35', 'UK DPIA requirement for high-risk processing, including new technologies and profiling.'),
+    ('Equality Act 2010', 's.19 & s.29', 'Indirect discrimination: a pricing, claims or eligibility rule that disadvantages people with a protected characteristic is unlawful unless objectively justified. Proxy variables such as postcode can cause it.'),
+    ('FCA Consumer Duty', 'PRIN 2A', 'Firms must deliver good outcomes for retail customers: fair value, products that meet needs, understandable communications and support; avoid foreseeable harm, especially to vulnerable customers.'),
+    ('FCA Consumer Duty', 'Pricing practices (ICOBS 6B)', 'Home and motor renewal prices must not exceed the equivalent new business price; no price walking of loyal customers.'),
+    ('FCA SM&CR', 'Accountability', 'Senior Managers carry personal accountability for activities in their area, including AI-driven ones; a named accountable executive is expected.'),
+    ('DPDP Act 2023', 'Sec. 4-7', 'Personal data may be processed only for a lawful purpose with notice and free, specific, informed consent, or for a listed legitimate use.'),
+    ('DPDP Act 2023', 'Sec. 8', 'Data fiduciary must ensure accuracy, reasonable security safeguards, breach notification and erasure when the purpose is served.'),
+    ('DPDP Act 2023', 'Sec. 9', "Children's data needs verifiable parental consent; no tracking, behavioural monitoring or targeted advertising to children."),
+    ('DPDP Act 2023', 'Sec. 10', 'Significant data fiduciaries must appoint a Data Protection Officer and an independent data auditor, and run periodic impact assessments.'),
+    ('DPDP Act 2023', 'Sec. 16', 'Cross-border transfer of personal data is allowed except to countries the Government restricts by notification.'),
+    ('IRDAI Guidelines', 'Information & cyber security', 'Insurers regulated by IRDAI are expected to follow its information and cyber security requirements, including oversight of outsourced and third-party systems. Verify exact clauses with legal.'),
+    ('HIPAA', 'Privacy Rule', 'Protected health information use and disclosure is limited; minimum necessary standard applies.'),
+    ('HIPAA', 'Security Rule', 'Administrative, physical and technical safeguards are required for electronic protected health information.'),
+    ('NAIC Model Bulletin', 'AI Systems in Insurance', 'US insurers are expected to maintain a written AI systems programme covering governance, risk management, third-party vendor oversight and testing for unfair discrimination. Adopted in 24 or more states.'),
+    ('Colorado SB 21-169', 'Reg 10-1-1', 'Insurers using external consumer data, algorithms and predictive models must have board-level governance, test for unfair discrimination against protected classes and file an annual attestation. Extended to motor and health insurers from 15 October 2025.'),
+    ('Colorado SB 26-189', 'Automated decision-making', 'Colorado replaced its original AI Act with SB 26-189, effective 1 January 2027, covering automated decision-making technology in consequential decisions.'),
+    ('US State Privacy Laws', 'Profiling opt-out', 'Many US state privacy laws, for example California CCPA/CPRA, give consumers notice and opt-out rights for automated decision-making and profiling.'),
+    ('Singapore PDPA', 'Consent & Purpose', 'Organisations need consent or a deemed-consent basis and must use personal data only for purposes a reasonable person would consider appropriate.'),
+    ('MAS AI Risk Guidelines', 'FEAT principles', 'Financial institutions in Singapore are expected to govern AI using fairness, ethics, accountability and transparency principles. Verify the current MAS guideline text with legal.'),
+    ('NIST AI RMF', 'Govern/Map/Measure/Manage', 'Voluntary framework: govern culture, map context and risks, measure trustworthiness, manage and monitor risks.'),
+    ('NIST AI RMF', 'GenAI Profile (AI 600-1)', 'Companion profile for generative AI risks such as confabulation, data privacy, information integrity and harmful bias.'),
+    ('ISO/IEC 42001', 'AI management system', 'Management system standard for AI: policy, roles, risk assessment, impact assessment and continual improvement.'),
+    ('ISO/IEC 23894', 'AI risk management', 'Guidance on managing AI-specific risk through the lifecycle, aligned to ISO 31000.'),
+    ('ISO/IEC 27001', 'Information security', 'Information security management system: controls for access, logging, supplier security and incident handling.'),
+    ('OECD AI Principles', 'Trustworthy AI', 'Inclusive growth, human rights and fairness, transparency and explainability, robustness and security, accountability.'),
 ]
 
 PROHIBITED = ["Social scoring", "Manipulative or subliminal techniques", "Exploiting vulnerabilities",
@@ -179,16 +206,47 @@ def log(actor, action, uc=None, detail=""):
     c.commit()
 
 # ---------- deterministic risk engine (AI never sets the tier) ----------
+# Weights add up to 100. Harm-related dimensions weigh more than convenience-related ones.
+WEIGHTS = {"Impact": 16, "People": 14, "Data": 12, "Automation": 12, "Scale": 10,
+           "Reversibility": 12, "Technical uncertainty": 8, "Misuse": 8, "Dependency": 8}
+CRITICAL = ["Impact", "People", "Reversibility", "Automation"]   # a rating of 3 here is serious on its own
+BANDS = [(30, "low"), (55, "medium"), (80, "high"), (101, "very_high")]   # upper bound (exclusive) and tier
+TIER_LABEL = {"low": "LOW", "medium": "MEDIUM", "high": "HIGH", "very_high": "VERY HIGH", "prohibited": "PROHIBITED"}
+TIER_ORDER = ["prohibited", "very_high", "high", "medium", "low"]
+TIER_MEANING = {
+    "low": "Routine oversight. Owner sign-off only, review every 24 months.",
+    "medium": "Privacy and risk review at the gates, review every 12 months.",
+    "high": "Privacy, risk, legal and review board sign-off at the gates, review every 6 months.",
+    "very_high": "All High controls plus governance admin sign-off, review every 3 months.",
+    "prohibited": "Cannot proceed. Stop and escalate to legal.",
+}
+
+def score100(scores):
+    lo = sum(WEIGHTS[d] * 1 for d in WEIGHTS); hi = sum(WEIGHTS[d] * 3 for d in WEIGHTS)
+    return round(100 * (sum(WEIGHTS[d] * scores[d] for d in WEIGHTS) - lo) / (hi - lo))
+
+def band(s):
+    for upper, t in BANDS:
+        if s < upper: return t
+
 def classify(prohibited, triggers, scores, geo_pts=0):
-    total = sum(scores.values()) + geo_pts
+    """Deterministic. The AI never sets the tier. Returns (tier, score out of 100, reasons)."""
+    s = min(100, score100(scores) + 2 * geo_pts)
     if prohibited:
-        return "prohibited", total, [f"Prohibited practice: {p}" for p in prohibited]
+        return "prohibited", s, [f"Prohibited practice: {p}" for p in prohibited]
+    tier = band(s)
+    why = [f"Weighted score {s}/100 puts this in {TIER_LABEL[tier]}"]
+    if geo_pts: why.append(f"Includes +{2 * geo_pts} for operating in more than one jurisdiction")
+    crit3 = [d for d in CRITICAL if scores[d] == 3]
+    if len(crit3) >= 3 and tier in ("low", "medium"):
+        tier = "high"; why.append("Floor to HIGH: three or more critical dimensions rated 3 (" + ", ".join(crit3) + ")")
     if triggers:
-        return "high", total, [f"Escalation trigger: {t}" for t in triggers]
-    tier = "low" if total <= 14 else "medium" if total <= 20 else "high"
-    why = [f"Score {total} -> {tier}"]
-    if geo_pts: why.append(f"includes +{geo_pts} for operating in more than one jurisdiction")
-    return tier, total, why
+        why += [f"Regulatory trigger: {t}" for t in triggers]
+        if tier in ("low", "medium"):
+            tier = "high"; why.append("Floor to HIGH: a regulatory trigger applies")
+    if triggers and len(crit3) >= 2 and s >= 65 and tier == "high":
+        tier = "very_high"; why.append("Escalated to VERY HIGH: a trigger, two or more critical dimensions at 3, and score 65 or more")
+    return tier, s, why
 
 def auto_triggers(trig, data, geos):
     t = list(trig)
@@ -196,21 +254,47 @@ def auto_triggers(trig, data, geos):
     if "Children" in data and TRIGGERS[5] not in t: t.append(TRIGGERS[5])
     return t
 
-def applicable_laws(geos, data_types, domain=""):
-    laws = ["NIST AI RMF", "ISO/IEC 42001"]
-    if "EU" in geos: laws += ["GDPR", "EU AI Act"]
+def law_reasons(geos, data_types, domain=""):
+    """Which regimes apply and why. Edit this one function to change scoping."""
+    out = []
+    def add(r, why):
+        if r not in [x[0] for x in out]: out.append((r, why))
+    add("NIST AI RMF", "Baseline voluntary framework for every system")
+    add("ISO/IEC 42001", "Baseline AI management standard for every system")
+    add("ISO/IEC 23894", "Baseline AI risk management guidance for every system")
+    add("OECD AI Principles", "Baseline principles for every system")
+    if data_types and data_types != ["None"]:
+        add("ISO/IEC 27001", "The system handles personal data, so security controls apply")
+    if "EU" in geos:
+        add("EU AI Act", "Operates in the EU"); add("GDPR", "Operates in the EU")
     if "UK" in geos:
-        laws += ["UK GDPR", "Equality Act 2010"]
-        if domain in ("Insurance", "Banking"): laws += ["FCA Consumer Duty"]
-    if "India" in geos: laws += ["DPDP Act 2023"]
-    if "US" in geos and "Health" in data_types: laws += ["HIPAA"]
-    return laws
+        add("UK GDPR", "Operates in the UK"); add("Equality Act 2010", "Operates in the UK")
+        if domain in ("Insurance", "Banking"):
+            add("FCA Consumer Duty", f"{domain} firm serving UK retail customers")
+            add("FCA SM&CR", f"{domain} firm regulated in the UK")
+    if "India" in geos:
+        add("DPDP Act 2023", "Operates in India")
+        if domain == "Insurance": add("IRDAI Guidelines", "Insurance business in India")
+    if "US" in geos:
+        add("US State Privacy Laws", "Operates in the US")
+        if "Health" in data_types: add("HIPAA", "US health data")
+        if domain == "Insurance":
+            add("NAIC Model Bulletin", "US insurance business")
+            add("Colorado SB 21-169", "US insurance business may include Colorado")
+        add("Colorado SB 26-189", "US consumers may be in Colorado")
+    if "Singapore" in geos:
+        add("Singapore PDPA", "Operates in Singapore")
+        if domain in ("Insurance", "Banking"): add("MAS AI Risk Guidelines", f"{domain} firm in Singapore")
+    return out
+
+def applicable_laws(geos, data_types, domain=""):
+    return [r for r, _ in law_reasons(geos, data_types, domain)]
 
 def insert_use_case(c, name, bu, intake, proh, trig, scores, actor="submitter"):
     t = auto_triggers(trig, intake.get("data", []), intake.get("geos", []))
     geo_pts = min(3, max(0, len(intake.get("geos", [])) - 1))
     tier, total, reasons = classify(proh, t, scores, geo_pts)
-    laws = applicable_laws(intake.get("geos", []), intake.get("data", []), intake.get("domain", ""))
+    laws = intake.get("frameworks") or applicable_laws(intake.get("geos", []), intake.get("data", []), intake.get("domain", ""))
     n = (c.execute("select max(id) from use_cases").fetchone()[0] or 0) + 1
     code = f"AI-{dt.date.today().year}-{n:04d}"
     cur = c.execute("insert into use_cases(code,name,bu,intake,tier,risk,regs,status,created) values(?,?,?,?,?,?,?,?,?)",
@@ -280,31 +364,62 @@ def seed(c):
                   (uc, f, a, o, (dt.date.today() + dt.timedelta(days=d)).isoformat(), "open", now()))
     c.commit()
 
-    # ---------- findings -> actions ----------
+# ---------- findings -> actions ----------
+
 CONTROLS = {
-    "Art. 5": "Confirm no prohibited practice; stop the project if one applies",
-    "Art. 6 & Annex III": "Treat as high-risk: complete conformity checklist before go-live",
-    "Annex III 5(c)": "Treat insurance pricing as high-risk under the EU AI Act",
-    "Art. 9": "Set up a documented risk management process for the whole lifecycle",
-    "Art. 10": "Document training data sources and run bias checks on data",
-    "Art. 13-14": "Design and document human oversight and user instructions",
-    "Art. 26-27": "Assign human oversight, keep logs and complete a fundamental rights impact assessment",
-    "Art. 50": "Tell users they are interacting with AI and label generated content",
-    "Art. 22": "Add human review and an appeal route for significant automated decisions",
-    "Art. 35": "Complete a data protection impact assessment (DPIA)",
-    "Sec. 4-7": "Issue a DPDP notice and capture valid consent or legitimate use",
-    "Sec. 8": "Confirm security safeguards, breach process and erasure handling",
-    "Sec. 9": "Obtain verifiable parental consent; block tracking of children",
-    "PRIN 2A": "Run a Consumer Duty outcomes and fair value assessment, incl. vulnerable customers",
-    "Pricing practices (ICOBS 6B)": "Test that renewal prices never exceed equivalent new business price",
-    "s.19 & s.29": "Test outputs for proxy discrimination across protected characteristics",
-    "Privacy Rule": "Apply HIPAA minimum necessary rule to health data",
+    ('EU AI Act', 'Art. 4'): 'Run AI literacy training for staff who operate or oversee this system',
+    ('EU AI Act', 'Art. 5'): 'Confirm no prohibited practice applies; stop the project if one does',
+    ('EU AI Act', 'Art. 6 & Annex III'): 'Treat as high-risk: complete the conformity checklist before go-live',
+    ('EU AI Act', 'Annex III 5(c)'): 'Treat life or health insurance pricing and risk assessment as high-risk',
+    ('EU AI Act', 'Art. 9'): 'Set up a documented risk management process for the whole lifecycle',
+    ('EU AI Act', 'Art. 10'): 'Document training data sources and run bias checks on the data',
+    ('EU AI Act', 'Art. 11-12'): 'Keep technical documentation current and enable automatic event logging',
+    ('EU AI Act', 'Art. 13-14'): 'Design and document human oversight and instructions for use',
+    ('EU AI Act', 'Art. 15'): 'Test and record accuracy, robustness and cybersecurity',
+    ('EU AI Act', 'Art. 26-27'): 'Assign human oversight, keep logs and complete a fundamental rights impact assessment',
+    ('EU AI Act', 'Art. 50'): 'Tell users they are dealing with AI and label AI-generated content',
+    ('EU AI Act', 'Art. 53 (GPAI)'): 'Collect provider documentation and copyright policy for the general-purpose model',
+    ('GDPR', 'Art. 5'): 'Document lawful basis, purpose, minimisation and retention for the personal data used',
+    ('GDPR', 'Art. 6'): 'Record the lawful basis for processing',
+    ('GDPR', 'Art. 9'): 'Identify and document the Art. 9(2) condition for special category data',
+    ('GDPR', 'Art. 13-15'): 'Update privacy notices to explain automated decision logic and support access requests',
+    ('GDPR', 'Art. 22'): 'Add human review and an appeal route for significant automated decisions',
+    ('GDPR', 'Art. 25'): 'Build data protection by design and by default into the system',
+    ('GDPR', 'Art. 32-34'): 'Confirm security controls and a 72-hour breach notification process',
+    ('GDPR', 'Art. 35'): 'Complete a data protection impact assessment (DPIA)',
+    ('GDPR', 'Art. 44-49'): 'Confirm a valid transfer mechanism for any data leaving the EEA',
+    ('UK GDPR', 'Art. 22'): 'Add human review and a way to contest significant automated decisions',
+    ('UK GDPR', 'Art. 35'): 'Complete a UK data protection impact assessment',
+    ('Equality Act 2010', 's.19 & s.29'): 'Test outputs for proxy discrimination across protected characteristics',
+    ('FCA Consumer Duty', 'PRIN 2A'): 'Run a Consumer Duty outcomes and fair value assessment, including vulnerable customers',
+    ('FCA Consumer Duty', 'Pricing practices (ICOBS 6B)'): 'Test that renewal prices never exceed the equivalent new business price',
+    ('FCA SM&CR', 'Accountability'): 'Name the accountable Senior Manager for this system',
+    ('DPDP Act 2023', 'Sec. 4-7'): 'Issue a DPDP notice and capture valid consent or document the legitimate use',
+    ('DPDP Act 2023', 'Sec. 8'): 'Confirm security safeguards, breach process and erasure handling',
+    ('DPDP Act 2023', 'Sec. 9'): 'Obtain verifiable parental consent and block tracking of children',
+    ('DPDP Act 2023', 'Sec. 10'): 'Check whether the organisation is a significant data fiduciary; appoint DPO and auditor if so',
+    ('DPDP Act 2023', 'Sec. 16'): "Check cross-border transfers against the Government's restricted-country list",
+    ('IRDAI Guidelines', 'Information & cyber security'): 'Confirm IRDAI cyber security and outsourcing requirements are met (verify with legal)',
+    ('HIPAA', 'Privacy Rule'): 'Apply the HIPAA minimum necessary rule to health data',
+    ('HIPAA', 'Security Rule'): 'Confirm safeguards for electronic protected health information',
+    ('NAIC Model Bulletin', 'AI Systems in Insurance'): 'Document the AI systems programme, vendor oversight and discrimination testing',
+    ('Colorado SB 21-169', 'Reg 10-1-1'): 'Complete governance, bias testing and annual attestation for Colorado business',
+    ('Colorado SB 26-189', 'Automated decision-making'): 'Assess whether this is automated decision-making for consequential decisions in Colorado from Jan 2027',
+    ('US State Privacy Laws', 'Profiling opt-out'): 'Offer notice and opt-out for profiling and automated decisions where required',
+    ('Singapore PDPA', 'Consent & Purpose'): 'Confirm consent or deemed consent and that the purpose is reasonable',
+    ('MAS AI Risk Guidelines', 'FEAT principles'): 'Assess fairness, ethics, accountability and transparency against MAS expectations (verify with legal)',
+    ('NIST AI RMF', 'Govern/Map/Measure/Manage'): 'Map the system to the NIST Govern, Map, Measure and Manage functions',
+    ('NIST AI RMF', 'GenAI Profile (AI 600-1)'): 'Assess generative AI risks such as confabulation and information integrity',
+    ('ISO/IEC 42001', 'AI management system'): 'Align the system to the AI management system policy and impact assessment',
+    ('ISO/IEC 23894', 'AI risk management'): 'Record AI-specific risks in the risk register',
+    ('ISO/IEC 27001', 'Information security'): 'Confirm access control, logging and supplier security controls',
+    ('OECD AI Principles', 'Trustworthy AI'): 'Check the system against the OECD trustworthy AI principles',
 }
 
 def suggest_actions(hits):
     out, seen = [], set()
     for _, (law, art, _txt) in hits:
-        a = CONTROLS.get(art)
+        a = CONTROLS.get((law, art))
         if a and a not in seen:
             seen.add(a); out.append((f"{law} {art}", a))
     return out
@@ -364,7 +479,7 @@ def advance(u, actor):
     if u["stage"] == 10:
         c.execute("update use_cases set status='retired' where id=?", (u["id"],))
     elif u["stage"] == 6:
-        months = {"high": 6, "medium": 12}.get(u["tier"], 24)
+        months = {"very_high": 3, "high": 6, "medium": 12}.get(u["tier"], 24)
         nxt = (dt.date.today() + dt.timedelta(days=30 * months)).isoformat()
         c.execute("update use_cases set stage=7, status='production', next_review=? where id=?", (nxt, u["id"]))
     else:
@@ -434,122 +549,124 @@ def generate_questions(desc, domain):
     return bank_questions(desc + " " + domain), "built-in question bank"
 
 # ---------- look and feel ----------
-TIER_COL = {"low": "#34d399", "medium": "#fbbf24", "high": "#f87171", "prohibited": "#e879f9"}
-ACCENT = "#22d3ee"
+TIER_COL = {"low": "#2e7d32", "medium": "#f9a825", "high": "#ef6c00", "very_high": "#c62828", "prohibited": "#6a1b9a"}
+ACCENT = "#2f4bd8"
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
-:root {--bg:#0b1220; --panel:#111a2e; --panel2:#16213a; --line:#1f2d4a; --text:#e6edf7; --mute:#8a9bb8; --acc:#22d3ee; --acc2:#6366f1;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+:root {--bg:#f4f6fa; --panel:#ffffff; --line:#d9dfe9; --text:#1b2433; --mute:#5b6678; --navy:#14213d; --acc:#2f4bd8; --acc2:#eef1fd;}
 html, body, [class*="css"], .stMarkdown, .stTextInput, .stSelectbox, .stButton {font-family:'Inter',sans-serif;}
-.stApp {background: radial-gradient(1200px 500px at 85% -10%, rgba(34,211,238,.10), transparent 60%),
-        radial-gradient(900px 500px at -10% 0%, rgba(99,102,241,.12), transparent 55%), #0b1220; color: var(--text);}
+.stApp {background: var(--bg); color: var(--text);}
 header[data-testid="stHeader"] {background: transparent;}
 .block-container {padding-top: 1.2rem; padding-bottom: 3rem; max-width: 1300px;}
-h1, h2, h3, h4, h5 {color: var(--text) !important; letter-spacing:-0.015em;}
+h1, h2, h3, h4, h5 {color: var(--navy) !important; letter-spacing:-0.01em;}
 h1 {font-weight:700;} h2, h3 {font-weight:600;}
 p, label, li, span, div {color: inherit;}
+.stApp label, .stApp [data-testid="stWidgetLabel"] p {color: var(--text) !important; font-weight:500;}
 [data-testid="stCaptionContainer"], .stCaption, small {color: var(--mute) !important;}
 hr {border-color: var(--line);}
 
 /* sidebar */
-section[data-testid="stSidebar"] {background:#0a101d; border-right:1px solid var(--line);}
-section[data-testid="stSidebar"] * {color:#cbd5e1;}
-section[data-testid="stSidebar"] h1 {color:#fff !important; font-size:1.35rem; letter-spacing:.02em;}
+section[data-testid="stSidebar"] {background: var(--navy); border-right:0;}
+section[data-testid="stSidebar"] * {color:#dbe3f5;}
+section[data-testid="stSidebar"] h1 {color:#ffffff !important; font-size:1.3rem;}
 section[data-testid="stSidebar"] [role="radiogroup"] label {padding:.45rem .7rem; border-radius:8px; margin-bottom:2px;}
-section[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(34,211,238,.08);}
+section[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(255,255,255,.08);}
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {background:#ffffff !important;}
+section[data-testid="stSidebar"] [data-baseweb="select"] * {color:#1b2433 !important;}
+section[data-testid="stSidebar"] .stButton > button {background:transparent; color:#ffffff; border:1px solid rgba(255,255,255,.4);}
 
-/* inputs */
-.stTextInput input, .stTextArea textarea, .stDateInput input, .stNumberInput input {background:var(--panel) !important; color:var(--text) !important; border:1px solid var(--line) !important; border-radius:8px;}
-[data-baseweb="select"] > div {background:var(--panel) !important; border:1px solid var(--line) !important; border-radius:8px; color:var(--text) !important;}
+/* inputs: white fields, clear border, dark text */
+.stTextInput input, .stTextArea textarea, .stDateInput input, .stNumberInput input {background:#ffffff !important; color:var(--text) !important; border:1px solid #718096 !important; border-radius:6px;}
+.stTextInput input::placeholder, .stTextArea textarea::placeholder {color:#6b7a90 !important;}
+[data-baseweb="select"] > div, [data-baseweb="input"] {background:#ffffff !important; border:1px solid #718096 !important; border-radius:6px;}
 [data-baseweb="select"] * {color:var(--text) !important;}
-[data-baseweb="popover"] * {color:#0f172a !important;}
+[data-baseweb="popover"] *, [data-baseweb="menu"] * {color:var(--text) !important;}
+[data-baseweb="popover"] {background:#ffffff;}
+[data-baseweb="tag"] {background:var(--acc2) !important;} [data-baseweb="tag"] * {color:var(--acc) !important;}
 .stTextInput input:focus, .stTextArea textarea:focus {border-color:var(--acc) !important; box-shadow:0 0 0 1px var(--acc) !important;}
 
 /* buttons */
-.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; font-weight:600; transition:all .15s;}
-.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {border-color:var(--acc); color:#fff; background:#1a2847;}
-.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {background:linear-gradient(135deg,#0891b2,#22d3ee); color:#04202a; border:0;}
-.stButton > button[kind="primary"]:hover {filter:brightness(1.1); color:#04202a;}
-.stButton > button:disabled {opacity:.4;}
+.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {background:#ffffff; color:var(--navy); border:1px solid #718096; border-radius:6px; font-weight:600;}
+.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {border-color:var(--acc); color:var(--acc);}
+.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {background:var(--acc); color:#ffffff; border:0;}
+.stButton > button[kind="primary"]:hover {background:#2339b0; color:#ffffff;}
+.stButton > button:disabled {opacity:.45;}
 
 /* tabs, expanders, containers, tables */
 .stTabs [data-baseweb="tab-list"] {gap:4px; border-bottom:1px solid var(--line);}
-.stTabs [data-baseweb="tab"] {color:var(--mute); padding:.5rem 1rem; border-radius:8px 8px 0 0;}
-.stTabs [aria-selected="true"] {color:#fff !important; background:var(--panel);}
+.stTabs [data-baseweb="tab"] {color:var(--mute); padding:.5rem 1rem;}
+.stTabs [aria-selected="true"] {color:var(--acc) !important; font-weight:600;}
 .stTabs [data-baseweb="tab-highlight"] {background:var(--acc) !important;}
-[data-testid="stExpander"] {background:var(--panel); border:1px solid var(--line); border-radius:10px;}
-[data-testid="stExpander"] summary {color:var(--text);}
-[data-testid="stVerticalBlockBorderWrapper"] {border-color:var(--line) !important; background:rgba(17,26,46,.5); border-radius:10px;}
-[data-testid="stForm"] {background:var(--panel); border:1px solid var(--line); border-radius:12px;}
-[data-testid="stDataFrame"] {border:1px solid var(--line); border-radius:10px;}
-div[data-testid="stAlert"] {background:var(--panel2); border:1px solid var(--line); border-radius:10px; color:var(--text);}
+[data-testid="stExpander"] {background:var(--panel); border:1px solid var(--line); border-radius:8px;}
+[data-testid="stExpander"] summary, [data-testid="stExpander"] summary * {color:var(--text) !important;}
+[data-testid="stVerticalBlockBorderWrapper"] {border-color:var(--line) !important; background:var(--panel); border-radius:8px;}
+[data-testid="stForm"] {background:var(--panel); border:1px solid var(--line); border-radius:10px;}
+[data-testid="stDataFrame"] {border:1px solid var(--line); border-radius:8px; background:#ffffff;}
+div[data-testid="stAlert"] {border-radius:8px;}
 
-/* top brand bar */
-.topbar {display:flex; align-items:center; justify-content:space-between; padding:.7rem 1.1rem; margin-bottom:1.1rem;
-  background:rgba(17,26,46,.7); border:1px solid var(--line); border-radius:12px; backdrop-filter: blur(6px);}
-.brand {display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.08rem; color:#fff; letter-spacing:.02em;}
-.logo {width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#22d3ee,#6366f1); display:flex; align-items:center; justify-content:center; color:#04202a; font-weight:800; font-size:.9rem;}
+/* top bar */
+.topbar {display:flex; align-items:center; justify-content:space-between; padding:.65rem 1.1rem; margin-bottom:1.1rem; background:var(--panel); border:1px solid var(--line); border-radius:10px;}
+.brand {display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.08rem; color:var(--navy);}
+.logo {width:28px; height:28px; border-radius:7px; background:var(--acc); display:flex; align-items:center; justify-content:center; color:#ffffff; font-weight:800; font-size:.9rem;}
 .crumb {color:var(--mute); font-size:.85rem;} .crumb b {color:var(--text); font-weight:600;}
-.pill {font-family:'JetBrains Mono',monospace; font-size:.72rem; padding:3px 10px; border-radius:999px; border:1px solid var(--line); color:var(--acc); background:rgba(34,211,238,.07);}
+.pill {font-size:.75rem; padding:3px 10px; border-radius:999px; border:1px solid #c5cdf5; color:var(--acc); background:var(--acc2); font-weight:600;}
 
 /* KPI tiles */
 .kpis {display:grid; grid-template-columns:repeat(5,1fr); gap:.8rem; margin:.4rem 0 1.1rem 0;}
-.kpi {position:relative; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:1rem 1.1rem; overflow:hidden;}
-.kpi::before {content:""; position:absolute; inset:0 0 auto 0; height:3px; background:var(--k,#22d3ee);}
-.kpi .v {font-size:2rem; font-weight:700; color:#fff; line-height:1.1; font-family:'Inter',sans-serif;}
-.kpi .l {font-size:.78rem; color:var(--mute); margin-top:.25rem; text-transform:uppercase; letter-spacing:.07em;}
+.kpi {position:relative; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1rem 1.1rem; overflow:hidden;}
+.kpi::before {content:""; position:absolute; inset:0 0 auto 0; height:4px; background:var(--k,#2f4bd8);}
+.kpi .v {font-size:2rem; font-weight:700; color:var(--navy); line-height:1.1;}
+.kpi .l {font-size:.78rem; color:var(--mute); margin-top:.25rem; text-transform:uppercase; letter-spacing:.06em;}
 
 /* status strip + alerts */
-.strip {display:flex; align-items:center; gap:.7rem; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:.8rem 1.1rem; margin-bottom:.9rem; color:var(--text);}
-.strip .dotk {width:10px; height:10px; border-radius:50%; background:#f87171; box-shadow:0 0 0 4px rgba(248,113,113,.18);}
-.strip.okk .dotk {background:#34d399; box-shadow:0 0 0 4px rgba(52,211,153,.18);}
-.strip b {color:#fecaca;} .strip .ok {color:#6ee7b7; font-weight:600;}
-.alert {background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.28); border-left:4px solid #f87171; padding:.6rem 1rem; border-radius:8px; margin-bottom:.4rem; color:#fecaca;}
-.alert b {color:#fff;}
-.next {background:rgba(34,211,238,.07); border:1px solid rgba(34,211,238,.28); border-left:4px solid var(--acc); padding:.65rem 1rem; border-radius:8px; margin:.4rem 0 1rem 0; color:#cffafe;}
+.strip {display:flex; align-items:center; gap:.7rem; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:.8rem 1.1rem; margin-bottom:.9rem; color:var(--text);}
+.strip .dotk {width:10px; height:10px; border-radius:50%; background:#c62828; box-shadow:0 0 0 4px rgba(198,40,40,.15);}
+.strip.okk .dotk {background:#2e7d32; box-shadow:0 0 0 4px rgba(46,125,50,.15);}
+.strip b {color:#8e1c1c;} .strip .ok {color:#1b5e20; font-weight:600;}
+.alert {background:#fdecec; border:1px solid #f3b8b8; border-left:4px solid #c62828; padding:.6rem 1rem; border-radius:6px; margin-bottom:.4rem; color:#5c1111;}
+.alert b {color:#3d0a0a;}
+.next {background:#eef1fd; border:1px solid #c5cdf5; border-left:4px solid var(--acc); padding:.65rem 1rem; border-radius:6px; margin:.4rem 0 1rem 0; color:#1b2a6b;}
+.legend {background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:.8rem 1.1rem; margin-bottom:.9rem; color:var(--text); font-size:.9rem; line-height:1.7;}
 
 /* landing */
-.hero {position:relative; overflow:hidden; background:linear-gradient(135deg,#0f1b33 0%,#13294b 55%,#0e3a4f 100%); border:1px solid var(--line); padding:4rem 3rem; border-radius:18px; margin-top:.5rem;}
-.hero::after {content:""; position:absolute; right:-80px; top:-80px; width:380px; height:380px; border-radius:50%; background:radial-gradient(circle, rgba(34,211,238,.28), transparent 65%);}
-.hero .eyebrow {font-family:'JetBrains Mono',monospace; color:var(--acc); font-size:.78rem; letter-spacing:.14em; text-transform:uppercase;}
-.hero h1 {font-size:3.4rem; margin:.5rem 0 .6rem 0; color:#fff !important;}
-.hero p {font-size:1.12rem; color:#b6c4dc; max-width:720px; line-height:1.6; position:relative; z-index:1;}
-.feat {background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:1.3rem; height:100%; transition:all .2s;}
-.feat:hover {border-color:rgba(34,211,238,.5); transform:translateY(-2px);}
-.feat .n {font-family:'JetBrains Mono',monospace; color:var(--acc); font-size:.8rem;}
-.feat h4 {margin:.35rem 0 .4rem 0; color:#fff !important;}
+.hero {background:var(--navy); padding:3.5rem 3rem; border-radius:14px; margin-top:.5rem;}
+.hero .eyebrow {color:#9fb1f5; font-size:.78rem; letter-spacing:.14em; text-transform:uppercase; font-weight:600;}
+.hero h1 {font-size:3rem; margin:.5rem 0 .6rem 0; color:#ffffff !important;}
+.hero p {font-size:1.1rem; color:#cdd7f0; max-width:720px; line-height:1.6;}
+.feat {background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1.3rem; height:100%;}
+.feat .n {color:var(--acc); font-size:.8rem; font-weight:700;}
+.feat h4 {margin:.35rem 0 .4rem 0; color:var(--navy) !important;}
 .feat div.t {color:var(--mute); font-size:.92rem; line-height:1.5;}
 
 /* register cards */
-.card {display:flex; gap:.9rem; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:1rem 1.1rem; margin-bottom:.4rem; transition:all .15s;}
-.card:hover {border-color:rgba(34,211,238,.45);}
-.card h5 {margin:0 0 .35rem 0; font-size:1rem; font-weight:600; color:#fff !important;}
+.card {display:flex; gap:.9rem; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:1rem 1.1rem; margin-bottom:.4rem;}
+.card:hover {border-color:var(--acc);}
+.card h5 {margin:0 0 .35rem 0; font-size:1rem; font-weight:600; color:var(--navy) !important;}
 .card small {color:var(--mute) !important;}
-.ring {--p:0; --c:#22d3ee; flex:none; width:54px; height:54px; border-radius:50%;
-  background: conic-gradient(var(--c) calc(var(--p) * 1%), #1f2d4a 0); display:flex; align-items:center; justify-content:center;}
-.ring span {width:42px; height:42px; border-radius:50%; background:var(--panel); display:flex; align-items:center; justify-content:center;
-  font-family:'JetBrains Mono',monospace; font-size:.72rem; color:#fff;}
-.badge {display:inline-block; padding:2px 9px; border-radius:6px; font-size:.68rem; font-weight:700; letter-spacing:.08em; border:1px solid; font-family:'JetBrains Mono',monospace;}
-.low {color:#34d399; border-color:rgba(52,211,153,.5); background:rgba(52,211,153,.1);}
-.medium {color:#fbbf24; border-color:rgba(251,191,36,.5); background:rgba(251,191,36,.1);}
-.high {color:#f87171; border-color:rgba(248,113,113,.5); background:rgba(248,113,113,.1);}
-.prohibited {color:#e879f9; border-color:rgba(232,121,249,.5); background:rgba(232,121,249,.1);}
+.ring {--p:0; --c:#2f4bd8; flex:none; width:54px; height:54px; border-radius:50%; background: conic-gradient(var(--c) calc(var(--p) * 1%), #e3e8f1 0); display:flex; align-items:center; justify-content:center;}
+.ring span {width:42px; height:42px; border-radius:50%; background:var(--panel); display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; color:var(--navy);}
+.badge {display:inline-block; padding:2px 9px; border-radius:5px; font-size:.68rem; font-weight:700; letter-spacing:.06em; border:1px solid;}
+.low {color:#1b5e20; border-color:#a5d6a7; background:#e8f5e9;}
+.medium {color:#7a5200; border-color:#f3d27a; background:#fff6dc;}
+.high {color:#9a4100; border-color:#f5c196; background:#fff0e3;}
+.very_high {color:#8e1c1c; border-color:#f0a3a3; background:#fdecec;}
+.prohibited {color:#4a148c; border-color:#c9a6e4; background:#f3e8fb;}
 
 /* stage tracker */
-.track {display:flex; align-items:flex-start; margin:.9rem 0 1.2rem 0; padding:1rem .6rem; background:var(--panel); border:1px solid var(--line); border-radius:12px;}
+.track {display:flex; align-items:flex-start; margin:.9rem 0 1.2rem 0; padding:1rem .6rem; background:var(--panel); border:1px solid var(--line); border-radius:10px;}
 .stg {flex:1; text-align:center; position:relative; padding:0 2px;}
-.stg:not(:last-child)::after {content:""; position:absolute; top:14px; left:50%; width:100%; height:2px; background:#23324f; z-index:0;}
+.stg:not(:last-child)::after {content:""; position:absolute; top:14px; left:50%; width:100%; height:2px; background:#d3dae8; z-index:0;}
 .stg.done:not(:last-child)::after {background:var(--acc);}
-.dot {position:relative; z-index:1; width:30px; height:30px; margin:0 auto; border-radius:50%; background:#1b2742; color:var(--mute); border:1px solid #2a3b5e;
-  font-size:.76rem; font-weight:700; line-height:28px; font-family:'JetBrains Mono',monospace;}
-.stg.done .dot {background:var(--acc); color:#04202a; border-color:var(--acc);}
-.stg.now .dot {background:#0b1220; color:var(--acc); border:2px solid var(--acc); box-shadow:0 0 0 4px rgba(34,211,238,.2), 0 0 18px rgba(34,211,238,.45);}
+.dot {position:relative; z-index:1; width:30px; height:30px; margin:0 auto; border-radius:50%; background:#e9edf5; color:var(--mute); border:1px solid #c5cddc; font-size:.76rem; font-weight:700; line-height:28px;}
+.stg.done .dot {background:var(--acc); color:#ffffff; border-color:var(--acc);}
+.stg.now .dot {background:#ffffff; color:var(--acc); border:2px solid var(--acc); box-shadow:0 0 0 4px rgba(47,75,216,.15);}
 .lbl {font-size:.64rem; color:var(--mute); margin-top:7px; line-height:1.2;}
-.stg.now .lbl {color:#fff; font-weight:700;}
+.stg.now .lbl {color:var(--navy); font-weight:700;}
 </style>
 """
 
-def kpi(label, value, color="#22d3ee"):
+def kpi(label, value, color="#2f4bd8"):
     return f"<div class='kpi' style='--k:{color}'><div class='v'>{value}</div><div class='l'>{label}</div></div>"
 
 def topbar(page, role):
@@ -559,18 +676,18 @@ def topbar(page, role):
 def ring(u):
     pct = int(round(100 * (u["stage"] - 1) / 10)) if u["status"] != "retired" else 100
     if u["status"] == "production": pct = 100 if u["stage"] >= 7 else pct
-    return (f"<div class='ring' style='--p:{pct}; --c:{TIER_COL.get(u['tier'], '#22d3ee')}'><span>{u['stage']}/10</span></div>")
+    return (f"<div class='ring' style='--p:{pct}; --c:{TIER_COL.get(u['tier'], '#2f4bd8')}'><span>{u['stage']}/10</span></div>")
 
 def style_chart(ch):
-    return ch.configure(background="transparent").configure_view(strokeWidth=0)\
-             .configure_axis(labelColor="#8a9bb8", titleColor="#8a9bb8", gridColor="#1f2d4a", domainColor="#1f2d4a", tickColor="#1f2d4a")\
-             .configure_legend(labelColor="#cbd5e1", titleColor="#8a9bb8")
+    return ch.configure(background="#ffffff").configure_view(strokeWidth=0)\
+             .configure_axis(labelColor="#3a4558", titleColor="#3a4558", gridColor="#e3e8f1", domainColor="#c5cddc", tickColor="#c5cddc")\
+             .configure_legend(labelColor="#1b2433", titleColor="#3a4558")
 
 def E(x):
     return html.escape(str(x if x is not None else ""))
 
 def badge(tier):
-    return f"<span class='badge {tier}'>{tier.upper()}</span>"
+    return f"<span class='badge {tier}'>{TIER_LABEL.get(tier, tier.upper())}</span>"
 
 def tracker(stage):
     cells = []
@@ -593,8 +710,8 @@ def report_html(u, c):
     return f"""<html><head><meta charset='utf-8'><title>{E(u['code'])}</title>
 <style>body{{font-family:Arial;margin:40px;color:#1f2937}} td,th{{border:1px solid #ccc;padding:6px;text-align:left}} table{{border-collapse:collapse;width:100%}}
 .cover{{background:#0f2a4a;color:white;padding:28px;border-radius:12px}} .tier{{display:inline-block;padding:4px 14px;border-radius:999px;color:white;font-weight:bold;background:{TIER_COL.get(u['tier'],'#555')}}}</style></head><body>
-<div class='cover'><small>GovernAI AI System Assessment</small><h1>{E(u['code'])} - {E(u['name'])}</h1><span class='tier'>{E(u['tier']).upper()}</span></div>
-<p><b>Business unit:</b> {E(u['bu'])} | <b>Model owner:</b> {E(intake.get('model_owner') or 'not named')} | <b>Tier:</b> {u['tier'].upper()} (score {risk['total']}) | <b>Stage:</b> {u['stage']} {STAGES[u['stage']-1]} | <b>Status:</b> {u['status']} | <b>Next review:</b> {u['next_review'] or '-'}</p>
+<div class='cover'><small>GovernAI AI System Assessment</small><h1>{E(u['code'])} - {E(u['name'])}</h1><span class='tier'>{TIER_LABEL.get(u['tier'], u['tier'].upper())}</span></div>
+<p><b>Business unit:</b> {E(u['bu'])} | <b>Model owner:</b> {E(intake.get('model_owner') or 'not named')} | <b>Tier:</b> {TIER_LABEL.get(u['tier'], u['tier'].upper())} (score {risk['total']}/100) | <b>Stage:</b> {u['stage']} {STAGES[u['stage']-1]} | <b>Status:</b> {u['status']} | <b>Next review:</b> {u['next_review'] or '-'}</p>
 <h2>Purpose</h2><p>{E(intake.get('purpose',''))}</p>
 <h2>Why this tier</h2><ul>{''.join('<li>'+E(r)+'</li>' for r in risk['reasons'])}</ul>
 <h2>Laws in scope</h2><p>{', '.join(json.loads(u['regs']))}</p>
@@ -611,13 +728,13 @@ def landing():
     st.markdown(CSS, unsafe_allow_html=True)
     st.markdown("<div class='hero'><div class='eyebrow'>Responsible AI governance</div><h1>GovernAI</h1>"
                 "<p>One place to register every AI system, classify its risk with transparent rules, screen it against "
-                "GDPR, the EU AI Act, UK GDPR and India's DPDP Act, and take it through approval gates with a full audit trail.</p></div>",
+                "the laws and frameworks you choose, such as the EU AI Act, GDPR, DPDP Act, NIST AI RMF and ISO 42001, and take it through approval gates with a full audit trail.</p></div>",
                 unsafe_allow_html=True)
     st.write("")
     cols = st.columns(4)
     feats = [("01", "Register", "Describe a use case and get questions tailored to it."),
-             ("02", "Classify", "Deterministic tiering: Prohibited, High, Medium or Low, with reasons."),
-             ("03", "Screen", "Retrieves the relevant legal clauses; AI explains, never decides."),
+             ("02", "Classify", "Deterministic 0 to 100 score and five tiers, from Low to Prohibited, with reasons."),
+             ("03", "Screen", "Pick the laws in scope; the app retrieves their clauses and AI explains, never decides."),
              ("04", "Govern", "10 lifecycle stages, approvals, incidents, reviews and an audit log.")]
     for col, (n, h, t) in zip(cols, feats):
         col.markdown(f"<div class='feat'><div class='n'>{n}</div><h4>{h}</h4><div class='t'>{t}</div></div>", unsafe_allow_html=True)
@@ -626,7 +743,7 @@ def landing():
         st.session_state["entered"] = True; st.rerun()
     st.caption("AI-assisted risk screening, not legal advice.")
 
-def page_dashboard(c, ucs):
+    def page_dashboard(c, ucs):
     st.title("Dashboard")
     st.caption("Portfolio view of every AI system, its risk and what needs attention.")
     df = pd.DataFrame(ucs)
@@ -648,42 +765,93 @@ def page_dashboard(c, ucs):
                     f"{late_n} overdue action{'s' if late_n != 1 else ''}</span></div>", unsafe_allow_html=True)
     else:
         st.markdown("<div class='strip okk'><span class='dotk'></span><span><span class='ok'>All clear</span> &nbsp;|&nbsp; no overdue reviews, incidents or actions</span></div>", unsafe_allow_html=True)
-    hp = int(df["tier"].isin(["high", "prohibited"]).sum())
+    hp = int(df["tier"].isin(["very_high", "high", "prohibited"]).sum())
     st.markdown("<div class='kpis'>" +
-                kpi("AI systems", len(df), "#22d3ee") +
-                kpi("High / prohibited", hp, "#f87171") +
-                kpi("In production", int((df["status"] == "production").sum()), "#34d399") +
-                kpi("Overdue reviews", len(over), "#fbbf24") +
-                kpi("Open incidents", open_inc, "#a78bfa") + "</div>", unsafe_allow_html=True)
+                kpi("AI systems", len(df), "#2f4bd8") +
+                kpi("High and above", hp, "#c62828") +
+                kpi("In production", int((df["status"] == "production").sum()), "#2e7d32") +
+                kpi("Overdue reviews", len(over), "#f9a825") +
+                kpi("Open incidents", open_inc, "#6a1b9a") + "</div>", unsafe_allow_html=True)
     late = c.execute("select a.action, a.owner, a.due, u.code from actions a join use_cases u on u.id=a.uc where a.status='open' and a.due < ?", (today,)).fetchall()
     for x in late:
         st.markdown(f"<div class='alert'>Action overdue on <b>{E(x['code'])}</b>: {E(x['action'])} (owner {E(x['owner'])}, due {E(x['due'])})</div>", unsafe_allow_html=True)
-    tiers = list(TIER_COL)
+    st.markdown("<div class='legend'><b>How tiers work.</b> "
+                + " &nbsp;|&nbsp; ".join(f"{badge(t)} {TIER_MEANING[t]}" for t in TIER_ORDER[::-1]) + "</div>", unsafe_allow_html=True)
+    tiers = [t for t in TIER_ORDER[::-1]]
     a, b = st.columns(2)
     td = df["tier"].value_counts().rename_axis("tier").reset_index(name="count")
+    td["label"] = td["tier"].map(TIER_LABEL)
     a.subheader("Risk tiers")
-    a.altair_chart(style_chart(alt.Chart(td).mark_arc(innerRadius=62, stroke="#0b1220", strokeWidth=3).encode(
-        theta="count:Q", color=alt.Color("tier:N", scale=alt.Scale(domain=tiers, range=[TIER_COL[t] for t in tiers])),
-        tooltip=["tier", "count"])), use_container_width=True)
+    a.altair_chart(style_chart(alt.Chart(td).mark_arc(innerRadius=62, stroke="#ffffff", strokeWidth=3).encode(
+        theta="count:Q", color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers])),
+        tooltip=["label", "count"])), use_container_width=True)
     sd = df["stage"].value_counts().rename_axis("stage").reset_index(name="count")
     sd["stage_name"] = sd["stage"].map(lambda i: f"{i}. {STAGES[int(i)-1]}")
     b.subheader("Systems by lifecycle stage")
-    b.altair_chart(style_chart(alt.Chart(sd).mark_bar(color="#22d3ee", cornerRadiusTopRight=4, cornerRadiusBottomRight=4).encode(
+    b.altair_chart(style_chart(alt.Chart(sd).mark_bar(color="#2f4bd8", cornerRadiusTopRight=3, cornerRadiusBottomRight=3).encode(
         x=alt.X("count:Q", title=None, axis=alt.Axis(tickMinStep=1)), y=alt.Y("stage_name:N", sort=[f"{i}. {s}" for i, s in enumerate(STAGES, 1)], title=None),
         tooltip=["stage_name", "count"])), use_container_width=True)
+
+    # ---- new: risk score ranking and distribution ----
+    df["score"] = [json.loads(r)["total"] for r in df["risk"]]
+    df["label"] = df["tier"].map(TIER_LABEL)
+    a2, b2 = st.columns(2)
+    a2.subheader("Highest-risk systems")
+    top = df.sort_values("score", ascending=False).head(8)
+    a2.altair_chart(style_chart(alt.Chart(top).mark_bar(cornerRadiusTopRight=3, cornerRadiusBottomRight=3).encode(
+        x=alt.X("score:Q", scale=alt.Scale(domain=[0, 100]), title="Risk score out of 100"),
+        y=alt.Y("name:N", sort="-x", title=None),
+        color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers]), legend=None),
+        tooltip=["code", "name", "score", "label"])), use_container_width=True)
+    b2.subheader("Score vs lifecycle stage")
+    b2.altair_chart(style_chart(alt.Chart(df).mark_circle(size=170, opacity=.9).encode(
+        x=alt.X("stage:Q", scale=alt.Scale(domain=[0.5, 10.5]), title="Lifecycle stage", axis=alt.Axis(tickMinStep=1)),
+        y=alt.Y("score:Q", scale=alt.Scale(domain=[0, 100]), title="Risk score"),
+        color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers]), legend=alt.Legend(title="Tier")),
+        tooltip=["code", "name", "score", "label", "stage"])), use_container_width=True)
+
+    # ---- new: regulation coverage ----
+    reg_rows = [{"regime": r} for _, rg in df["regs"].items() for r in json.loads(rg)]
+    if reg_rows:
+        rc = pd.DataFrame(reg_rows).value_counts().reset_index(name="systems")
+        st.subheader("Regulation coverage: how many systems each law applies to")
+        st.altair_chart(style_chart(alt.Chart(rc).mark_bar(color="#14213d", cornerRadiusTopRight=3, cornerRadiusBottomRight=3).encode(
+            x=alt.X("systems:Q", title="Systems in scope", axis=alt.Axis(tickMinStep=1)), y=alt.Y("regime:N", sort="-x", title=None),
+            tooltip=["regime", "systems"])), use_container_width=True)
+
     st.subheader("Business unit x risk tier")
-    hm = df.groupby(["bu", "tier"]).size().reset_index(name="count")
-    st.altair_chart(style_chart(alt.Chart(hm).mark_rect(stroke="#0b1220", strokeWidth=3, cornerRadius=4).encode(
-        x=alt.X("tier:N", sort=tiers, title=None), y=alt.Y("bu:N", title=None),
-        color=alt.Color("count:Q", scale=alt.Scale(range=["#16304f", "#22d3ee"]), legend=None), tooltip=["bu", "tier", "count"])), use_container_width=True)
+    hm = df.groupby(["bu", "label"]).size().reset_index(name="count")
+    st.altair_chart(style_chart(alt.Chart(hm).mark_rect(stroke="#ffffff", strokeWidth=3, cornerRadius=3).encode(
+        x=alt.X("label:N", sort=[TIER_LABEL[t] for t in tiers], title=None), y=alt.Y("bu:N", title=None),
+        color=alt.Color("count:Q", scale=alt.Scale(range=["#dfe5fb", "#2f4bd8"]), legend=None), tooltip=["bu", "label", "count"])), use_container_width=True)
+
+ALL_FRAMEWORKS = sorted({r[0] for r in REGS})
 
 def page_register(c, role):
     st.title("Register an AI use case")
-    st.caption("Step 1: describe it. Step 2: answer questions generated for this use case. Step 3: classify.")
+    st.caption("Step 1: describe it and choose where it operates. Step 2: confirm the laws and frameworks. Step 3: answer questions and classify.")
     name = st.text_input("System name")
     bu = st.text_input("Business unit")
     domain = st.selectbox("Domain", ["Insurance", "Banking", "HR", "Healthcare", "Customer service", "Marketing", "Operations", "Other"])
+    geos = st.multiselect("Geographies where the system is used or affects people", ["EU", "UK", "India", "US", "Singapore"])
+    data = st.multiselect("Personal data types", ["None", "Personal", "Health", "Biometric", "Children", "Financial", "Behavioural"])
     desc = st.text_area("Describe what the AI does, who it affects and what decisions it supports")
+
+    # framework picker: suggestions come from geography, domain and data; the user can add or remove any
+    suggested = law_reasons(geos, data, domain)
+    sugg_names = [r for r, _ in suggested]
+    st.markdown("**Laws and frameworks to assess against**")
+    st.caption("Suggested from where the system operates and its domain. Add or remove any. Screening, actions and reports will use exactly this list.")
+    picked = st.multiselect("Frameworks in scope", ALL_FRAMEWORKS, default=[s for s in sugg_names if s in ALL_FRAMEWORKS], key="fw_" + "|".join(sugg_names))
+    if suggested:
+        with st.expander("Why these were suggested"):
+            for r, why in suggested:
+                st.write(f"**{r}**: {why}")
+    if "EU" not in geos and "EU AI Act" in picked:
+        st.warning("The EU AI Act applies when the system is placed on the EU market or its output is used in the EU. Confirm that applies, or remove it.")
+    if geos and not any(g in geos for g in ["EU"]) and "EU AI Act" not in picked and "US" in geos:
+        st.info("US business: consider NAIC Model Bulletin, Colorado and state privacy laws, which are suggested above when the domain is insurance.")
+
     if st.button("Generate use-case questions"):
         if not str(desc).strip():
             st.error("Describe the use case first.")
@@ -699,8 +867,6 @@ def page_register(c, role):
         build = st.selectbox("Classification", ["build", "buy", "configure", "integrate"])
         model = st.text_input("Model / provider / version")
         owner = st.text_input("Model owner (name of accountable person)")
-        geos = st.multiselect("Geographies", ["EU", "UK", "India", "US", "Singapore"])
-        data = st.multiselect("Personal data types", ["None", "Personal", "Health", "Biometric", "Children", "Financial", "Behavioural"])
         auto = st.selectbox("Degree of automation", ["advisory", "human-in-loop", "fully automated"])
         misuse = st.text_area("Foreseeable misuse")
         st.markdown("**Prohibited practices (EU AI Act Art. 5)**")
@@ -713,14 +879,17 @@ def page_register(c, role):
     if ok:
         if not str(name).strip():
             st.error("System name is required.")
+        elif not picked:
+            st.error("Choose at least one framework in scope.")
         else:
             intake = dict(purpose=desc, domain=domain, build=build, model=model, geos=geos, data=data,
-                          automation=auto, misuse=misuse, follow_up=answers, model_owner=str(owner).strip())
+                          automation=auto, misuse=misuse, follow_up=answers, model_owner=str(owner).strip(),
+                          frameworks=list(picked))
             _, code, tier, total, reasons, laws = insert_use_case(c, name.strip(), bu, intake, proh, trig, scores, role)
             st.markdown(f"### {E(code)} registered {badge(tier)}", unsafe_allow_html=True)
-            st.write(f"Score {total}")
+            st.write(f"Risk score {total}/100. {TIER_MEANING[tier]}")
             for r in reasons: st.write("- " + r)
-            st.write("Laws in scope: " + ", ".join(laws))
+            st.write("Assessed against: " + ", ".join(laws))
             st.session_state["qs"] = []
 
 def register_excel(c, items):
@@ -749,7 +918,7 @@ def page_register_list(c, ucs, role):
     st.title("AI Systems Register")
     st.caption("Every AI system in the organisation, with its risk tier, lifecycle stage and status. Open one to work on it.")
     f1, f2, f3 = st.columns(3)
-    tiers = f1.multiselect("Risk tier", ["prohibited", "high", "medium", "low"])
+    tiers = f1.multiselect("Risk tier", TIER_ORDER, format_func=lambda t: TIER_LABEL[t])
     stats = f2.multiselect("Status", ["in_review", "production", "blocked", "returned", "retired"])
     q = f3.text_input("Search")
     items = [u for u in ucs if (not tiers or u["tier"] in tiers) and (not stats or u["status"] in stats)
@@ -771,7 +940,8 @@ def page_detail(c, u, role):
         st.session_state["open_id"] = None; st.rerun()
     risk = json.loads(u["risk"]); intake = json.loads(u["intake"])
     st.markdown(f"## {E(u['name'])} {badge(u['tier'])}", unsafe_allow_html=True)
-    st.caption(f"{u['code']} | {u['bu']} | model owner {intake.get('model_owner') or 'not named'} | status {u['status']} | score {risk['total']} | next review {u['next_review'] or '-'}")
+    st.caption(f"{u['code']} | {u['bu']} | model owner {intake.get('model_owner') or 'not named'} | status {u['status']} | score {risk['total']}/100 | next review {u['next_review'] or '-'}")
+    st.caption(TIER_MEANING.get(u['tier'], ''))
     st.markdown(tracker(u["stage"]), unsafe_allow_html=True)
     _b = blockers(u)
     _msg = ("This system cannot proceed." if u["tier"] == "prohibited" else
@@ -785,7 +955,7 @@ def page_detail(c, u, role):
         sc = pd.DataFrame({"dimension": list(risk["scores"]), "score": list(risk["scores"].values())})
         st.altair_chart(style_chart(alt.Chart(sc).mark_bar(cornerRadiusTopRight=4, cornerRadiusBottomRight=4).encode(
             x=alt.X("score:Q", scale=alt.Scale(domain=[0, 3]), title=None), y=alt.Y("dimension:N", sort=DIMS, title=None),
-            color=alt.Color("score:Q", scale=alt.Scale(domain=[1, 3], range=["#34d399", "#f87171"]), legend=None))),
+            color=alt.Color("score:Q", scale=alt.Scale(domain=[1, 3], range=["#2e7d32", "#c62828"]), legend=None))),
             use_container_width=True)
         for qq, aa in intake.get("follow_up", {}).items():
             st.write(f"**{qq}**  \n{aa}")
@@ -813,6 +983,7 @@ def page_detail(c, u, role):
         if st.button("Advance stage", disabled=bool(b)):
             advance(u, role); st.rerun()
     with t2:
+        st.caption("Assessed against: " + ", ".join(json.loads(u["regs"])))
         if st.button("Run AI screening"):
             laws = json.loads(u["regs"])
             query = " ".join(str(v) for v in intake.values()) + " " + " ".join(risk["reasons"])
@@ -837,7 +1008,7 @@ def page_detail(c, u, role):
             late = a["status"] == "open" and a["due"] < today
             with st.container(border=True):
                 st.markdown(f"**{E(a['action'])}**  \n<small>{E(a['finding'])} | owner {E(a['owner'])} | due {E(a['due'])}"
-                            f"{' | <b style=color:#f87171>OVERDUE</b>' if late else ''} | {E(a['status'])}</small>", unsafe_allow_html=True)
+                            f"{' | <b style=color:#c62828>OVERDUE</b>' if late else ''} | {E(a['status'])}</small>", unsafe_allow_html=True)
                 if a["status"] == "open":
                     x1, x2, x3 = st.columns([2, 2, 1])
                     own = x1.text_input("Owner", a["owner"], key=f"ow{a['id']}")
@@ -864,14 +1035,20 @@ def page_detail(c, u, role):
             npur = st.text_area("Description / purpose", intake.get("purpose", ""))
             nm = st.text_input("Model / provider / version", intake.get("model", ""))
             no = st.text_input("Model owner (name)", intake.get("model_owner", ""))
+            cur_fw = [f for f in json.loads(u["regs"]) if f in ALL_FRAMEWORKS]
+            nfw = st.multiselect("Frameworks in scope", ALL_FRAMEWORKS, default=cur_fw)
             st.caption("Risk answers (data, automation, geography, triggers) change through a material change request so the tier is re-assessed.")
             if st.form_submit_button("Save details"):
                 if not str(nn).strip():
                     st.error("Name cannot be empty.")
                 else:
                     intake["purpose"] = npur; intake["model"] = nm; intake["model_owner"] = str(no).strip()
-                    c.execute("update use_cases set name=?, bu=?, intake=? where id=?", (nn.strip(), nb, json.dumps(intake), u["id"]))
-                    c.commit(); log(role, "edited", u["id"], "details updated"); st.rerun()
+                    if not nfw:
+                        st.error("Keep at least one framework in scope.")
+                    else:
+                        intake["frameworks"] = list(nfw)
+                        c.execute("update use_cases set name=?, bu=?, intake=?, regs=? where id=?", (nn.strip(), nb, json.dumps(intake), json.dumps(list(nfw)), u["id"]))
+                        c.commit(); log(role, "edited", u["id"], "details updated; frameworks: " + ", ".join(nfw)); st.rerun()
         if role == "governance_admin":
             st.markdown("**Delete system**")
             sure = st.checkbox(f"I understand this permanently deletes {u['code']}", key=f"del_ok_{u['id']}")
@@ -924,7 +1101,7 @@ def page_queue(c, ucs, role):
             and not c.execute("select 1 from approvals where uc=? and stage=? and role=? and outcome!='rejected'", (u["id"], u["stage"], role)).fetchone()]
     if not mine: st.info("Nothing waiting for you.")
     for u in mine:
-        with st.expander(f"{u['code']} - {u['name']} | stage {u['stage']} | {u['tier']}"):
+        with st.expander(f"{u['code']} - {u['name']} | stage {u['stage']} | {TIER_LABEL.get(u['tier'], u['tier'])}"):
             out = st.radio("Decision", ["approved", "approved_with_conditions", "rejected"], key=f"o{u['id']}")
             com = st.text_area("Comment / conditions (owner + due date)", key=f"c{u['id']}")
             if st.button("Submit decision", key=f"b{u['id']}"):
