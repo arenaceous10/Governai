@@ -1,0 +1,6 @@
+streamlit
+pandas
+scikit-learn
+requests
+altair
+openpyxl
