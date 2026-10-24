@@ -549,144 +549,131 @@ def generate_questions(desc, domain):
     return bank_questions(desc + " " + domain), "built-in question bank"
 
 # ---------- look and feel ----------
-TIER_COL = {"low": "#10b981", "medium": "#f59e0b", "high": "#f97316", "very_high": "#e11d48", "prohibited": "#7c3aed"}
-ACCENT = "#4f46e5"
+TIER_COL = {"low": "#2e7d5b", "medium": "#b7791f", "high": "#c2570c", "very_high": "#b42318", "prohibited": "#5b3a8c"}
+ACCENT = "#e8590c"
 CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-:root {--bg:#ffffff; --soft:#f7f8fc; --panel:#ffffff; --line:#e6e8f0; --text:#161b2e; --mute:#5a6379; --ink:#0f172a;
-       --acc:#4f46e5; --acc2:#eef2ff; --acc3:#c7d2fe; --shadow:0 1px 2px rgba(16,24,40,.05), 0 4px 14px rgba(16,24,40,.06);
-       --shadow2:0 2px 4px rgba(16,24,40,.06), 0 12px 28px rgba(79,70,229,.12);}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+:root {--bg:#ffffff; --soft:#f6f7f9; --panel:#ffffff; --line:#dfe3e8; --text:#1f2933; --mute:#52606d; --ink:#111827;
+       --dark:#1f2933; --acc:#c2410c; --acc2:#fff4ec; --acc3:#f3c9ad; --shadow:0 1px 2px rgba(17,24,39,.06);}
 html, body, [class*="css"], .stMarkdown, .stTextInput, .stSelectbox, .stButton {font-family:'Inter',sans-serif;}
 .stApp {background: var(--bg); color: var(--text);}
 header[data-testid="stHeader"] {background: transparent;}
 .block-container {padding-top: 1.1rem; padding-bottom: 3rem; max-width: 1320px;}
-h1, h2, h3, h4, h5 {color: var(--ink) !important; letter-spacing:-0.02em;}
-h1 {font-weight:800; font-size:2rem !important;} h2, h3 {font-weight:700;}
-p, label, li, span, div {color: inherit;}
+h1, h2, h3, h4, h5 {color: var(--ink) !important; letter-spacing:-0.01em; font-weight:600;}
+h1 {font-size:1.9rem !important;}
 .stApp label, .stApp [data-testid="stWidgetLabel"] p {color: var(--text) !important; font-weight:500;}
 [data-testid="stCaptionContainer"], .stCaption, small {color: var(--mute) !important;}
 hr {border-color: var(--line);}
 
-/* sidebar: deep indigo with a soft gradient */
-section[data-testid="stSidebar"] {background: linear-gradient(180deg,#1e1b4b 0%,#312e81 55%,#3730a3 100%); border-right:0;}
-section[data-testid="stSidebar"] * {color:#e0e7ff;}
-.sb-brand {display:flex; align-items:center; gap:.7rem; font-weight:800; font-size:1.25rem; color:#ffffff; margin:.3rem 0 1.1rem 0; letter-spacing:-.02em;}
-.sb-brand span {color:#ffffff !important;}
-section[data-testid="stSidebar"] [role="radiogroup"] {gap:2px;}
-section[data-testid="stSidebar"] [role="radiogroup"] label {padding:.55rem .8rem; border-radius:10px; margin-bottom:2px; transition:background .15s;}
-section[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:rgba(255,255,255,.10);}
-section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:rgba(255,255,255,.18); box-shadow:inset 3px 0 0 #a5b4fc;}
-section[data-testid="stSidebar"] [data-baseweb="select"] > div {background:#ffffff !important;}
-section[data-testid="stSidebar"] [data-baseweb="select"] * {color:#161b2e !important;}
-section[data-testid="stSidebar"] .stButton > button {background:transparent; color:#ffffff; border:1px solid rgba(255,255,255,.45); border-radius:10px;}
-section[data-testid="stSidebar"] .stButton > button:hover {background:rgba(255,255,255,.12); color:#ffffff;}
+/* sidebar: light grey, dark text, everything readable */
+section[data-testid="stSidebar"] {background:#f3f4f6; border-right:1px solid var(--line);}
+section[data-testid="stSidebar"] * {color:#1f2933;}
+.sb-brand {display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.15rem; color:#111827; margin:.3rem 0 1.1rem 0;}
+.sb-brand span {color:#111827 !important;}
+section[data-testid="stSidebar"] [role="radiogroup"] label {padding:.5rem .75rem; border-radius:6px; margin-bottom:2px;}
+section[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#e5e7eb;}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#ffffff; box-shadow:inset 3px 0 0 #c2410c, 0 0 0 1px #dfe3e8; font-weight:600;}
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {background:#ffffff !important; border:1px solid #6b7280 !important;}
+section[data-testid="stSidebar"] [data-baseweb="select"] * {color:#111827 !important; -webkit-text-fill-color:#111827 !important;}
+section[data-testid="stSidebar"] .stButton > button {background:#ffffff; color:#111827; border:1px solid #6b7280; border-radius:6px;}
+section[data-testid="stSidebar"] .stButton > button:hover {border-color:#c2410c; color:#c2410c;}
 
-/* inputs */
-.stTextInput input, .stTextArea textarea, .stDateInput input, .stNumberInput input {background:#ffffff !important; color:var(--text) !important; border:1px solid #718096 !important; border-radius:10px;}
-.stTextInput input::placeholder, .stTextArea textarea::placeholder {color:#6b7a90 !important;}
-[data-baseweb="select"] > div, [data-baseweb="input"] {background:#ffffff !important; border:1px solid #718096 !important; border-radius:10px;}
-[data-baseweb="select"] * {color:var(--text) !important;}
-[data-baseweb="popover"] *, [data-baseweb="menu"] * {color:var(--text) !important;}
-[data-baseweb="popover"] {background:#ffffff;}
-[data-baseweb="tag"] {background:var(--acc2) !important; border-radius:6px;} [data-baseweb="tag"] * {color:#3730a3 !important;}
-.stTextInput input:focus, .stTextArea textarea:focus {border-color:var(--acc) !important; box-shadow:0 0 0 3px rgba(79,70,229,.18) !important;}
+/* inputs: white fields, dark text, visible border, in the main page and in popups */
+.stTextInput input, .stTextArea textarea, .stDateInput input, .stNumberInput input {background:#ffffff !important; color:#111827 !important; -webkit-text-fill-color:#111827 !important; border:1px solid #6b7280 !important; border-radius:6px;}
+.stTextInput input::placeholder, .stTextArea textarea::placeholder {color:#6b7280 !important; -webkit-text-fill-color:#6b7280 !important;}
+[data-baseweb="select"] > div, [data-baseweb="input"] {background:#ffffff !important; border:1px solid #6b7280 !important; border-radius:6px;}
+[data-baseweb="select"] *, [data-baseweb="popover"] *, [data-baseweb="menu"] * {color:#111827 !important; -webkit-text-fill-color:#111827 !important;}
+[data-baseweb="popover"], [data-baseweb="menu"] {background:#ffffff !important;}
+[data-baseweb="tag"] {background:#e5e7eb !important; border-radius:4px;} [data-baseweb="tag"] * {color:#111827 !important;}
+.stTextInput input:focus, .stTextArea textarea:focus {border-color:#c2410c !important; box-shadow:0 0 0 2px rgba(194,65,12,.20) !important;}
 
 /* buttons */
-.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {background:#ffffff; color:var(--ink); border:1px solid #718096; border-radius:10px; font-weight:600; transition:all .15s;}
-.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {border-color:var(--acc); color:var(--acc); box-shadow:var(--shadow);}
-.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#ffffff; border:0; box-shadow:0 4px 14px rgba(79,70,229,.35);}
-.stButton > button[kind="primary"]:hover {filter:brightness(1.08); color:#ffffff;}
-.stButton > button:disabled {opacity:.45;}
+.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {background:#ffffff; color:#111827; border:1px solid #6b7280; border-radius:6px; font-weight:500;}
+.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {border-color:#c2410c; color:#c2410c;}
+.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {background:#c2410c; color:#ffffff; border:1px solid #c2410c;}
+.stButton > button[kind="primary"]:hover {background:#9a3412; color:#ffffff; border-color:#9a3412;}
+.stButton > button:disabled {opacity:.5;}
 
 /* tabs, expanders, forms */
-.stTabs [data-baseweb="tab-list"] {gap:6px; border-bottom:1px solid var(--line);}
-.stTabs [data-baseweb="tab"] {color:var(--mute); padding:.55rem 1rem; border-radius:8px 8px 0 0;}
-.stTabs [aria-selected="true"] {color:var(--acc) !important; font-weight:700;}
-.stTabs [data-baseweb="tab-highlight"] {background:var(--acc) !important; height:3px;}
-[data-testid="stExpander"] {background:var(--panel); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow);}
+.stTabs [data-baseweb="tab-list"] {gap:4px; border-bottom:1px solid var(--line);}
+.stTabs [data-baseweb="tab"] {color:var(--mute); padding:.5rem 1rem;}
+.stTabs [aria-selected="true"] {color:#111827 !important; font-weight:600;}
+.stTabs [data-baseweb="tab-highlight"] {background:#c2410c !important; height:2px;}
+[data-testid="stExpander"] {background:var(--panel); border:1px solid var(--line); border-radius:8px;}
 [data-testid="stExpander"] summary, [data-testid="stExpander"] summary * {color:var(--text) !important;}
-[data-testid="stVerticalBlockBorderWrapper"] {border-color:var(--line) !important; background:var(--panel); border-radius:12px;}
-[data-testid="stForm"] {background:var(--soft); border:1px solid var(--line); border-radius:14px;}
-[data-testid="stDataFrame"] {border:1px solid var(--line); border-radius:12px; background:#ffffff; box-shadow:var(--shadow);}
-div[data-testid="stAlert"] {border-radius:12px;}
+[data-testid="stVerticalBlockBorderWrapper"] {border-color:var(--line) !important; background:var(--panel); border-radius:8px;}
+[data-testid="stForm"] {background:var(--soft); border:1px solid var(--line); border-radius:8px;}
+[data-testid="stDataFrame"] {border:1px solid var(--line); border-radius:8px; background:#ffffff;}
+div[data-testid="stAlert"] {border-radius:8px;}
 
 /* top bar */
-.topbar {display:flex; align-items:center; justify-content:space-between; padding:.7rem 1.2rem; margin-bottom:1.2rem; background:linear-gradient(90deg,#ffffff 0%,#f5f6ff 100%); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow);}
-.brand {display:flex; align-items:center; gap:.7rem; font-weight:800; font-size:1.1rem; color:var(--ink); letter-spacing:-.02em;}
-.logo {width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,#6366f1,#8b5cf6); display:flex; align-items:center; justify-content:center; color:#ffffff !important; font-weight:800; font-size:.95rem; box-shadow:0 4px 10px rgba(99,102,241,.4);}
-.crumb {color:var(--mute); font-size:.85rem;} .crumb b {color:var(--ink); font-weight:700;}
-.pill {font-size:.74rem; padding:4px 11px; border-radius:999px; border:1px solid var(--acc3); color:#3730a3; background:var(--acc2); font-weight:700;}
+.topbar {display:flex; align-items:center; justify-content:space-between; padding:.65rem 1.1rem; margin-bottom:1.2rem; background:#1f2933; border-radius:8px;}
+.brand {display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.05rem; color:#ffffff;}
+.logo {width:28px; height:28px; border-radius:6px; background:#c2410c; display:flex; align-items:center; justify-content:center; color:#ffffff !important; font-weight:700; font-size:.9rem;}
+.crumb {color:#d1d5db; font-size:.85rem;} .crumb b {color:#ffffff; font-weight:600;}
+.pill {font-size:.74rem; padding:3px 10px; border-radius:4px; border:1px solid #6b7280; color:#ffffff; background:#374151; font-weight:600;}
 
-/* KPI tiles */
+/* KPI tiles: flat, no decoration */
 .kpis {display:grid; grid-template-columns:repeat(5,1fr); gap:1rem; margin:.2rem 0 1.4rem 0;}
-.kpi {position:relative; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:1.15rem 1.2rem 1.05rem 1.2rem; overflow:hidden; box-shadow:var(--shadow); transition:transform .15s, box-shadow .15s;}
-.kpi:hover {transform:translateY(-2px); box-shadow:var(--shadow2);}
-.kpi::after {content:""; position:absolute; right:-28px; top:-28px; width:96px; height:96px; border-radius:50%; background:var(--k,#4f46e5); opacity:.10;}
-.kpi .ki {width:34px; height:34px; border-radius:10px; background:var(--k,#4f46e5); color:#ffffff !important; display:flex; align-items:center; justify-content:center; font-size:.95rem; margin-bottom:.7rem; box-shadow:0 4px 10px rgba(0,0,0,.12);}
-.kpi .v {font-size:2.3rem; font-weight:800; color:var(--ink); line-height:1.05; letter-spacing:-.03em;}
-.kpi .l {font-size:.74rem; color:var(--mute); margin-top:.3rem; text-transform:uppercase; letter-spacing:.07em; font-weight:600;}
+.kpi {background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--k,#1f2933); border-radius:8px; padding:1rem 1.1rem;}
+.kpi .ki {display:none;}
+.kpi .v {font-size:2.1rem; font-weight:700; color:var(--ink); line-height:1.1;}
+.kpi .l {font-size:.74rem; color:var(--mute); margin-top:.3rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600;}
 
 /* tier legend */
-.legend {background:var(--soft); border:1px solid var(--line); border-radius:14px; padding:.85rem 1.2rem; margin-bottom:1.1rem; color:var(--text); font-size:.88rem; line-height:1.9;}
-
-/* chart panels */
-[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"] [data-testid="stVegaLiteChart"] {border-radius:12px;}
-.panel-title {font-weight:700; color:var(--ink); margin:.2rem 0 .3rem 0;}
+.legend {background:var(--soft); border:1px solid var(--line); border-radius:8px; padding:.8rem 1.1rem; margin-bottom:1.1rem; color:var(--text); font-size:.88rem; line-height:1.9;}
 
 /* alerts page */
-.acard {display:flex; align-items:center; gap:1rem; background:#ffffff; border:1px solid var(--line); border-radius:14px; padding:.95rem 1.2rem; margin-bottom:.6rem; box-shadow:var(--shadow); position:relative; overflow:hidden;}
-.acard::before {content:""; position:absolute; left:0; top:0; bottom:0; width:5px; background:var(--c,#4f46e5);}
-.acard.red {--c:#e11d48; --t:#9f1239;} .acard.amber {--c:#f59e0b; --t:#92400e;} .acard.violet {--c:#7c3aed; --t:#5b21b6;}
-.acard .aico {width:12px; height:12px; border-radius:50%; background:var(--c); box-shadow:0 0 0 5px color-mix(in srgb, var(--c) 18%, transparent); flex:none; margin-left:.3rem;}
-.acard .abody {flex:1;} .acard .atitle {font-weight:700; color:var(--ink);} .acard .asub {color:var(--mute); font-size:.86rem; margin-top:2px;}
-.acard .ameta {font-size:.78rem; font-weight:700; color:var(--t); background:color-mix(in srgb, var(--c) 10%, white); padding:4px 11px; border-radius:999px; white-space:nowrap;}
-.allclear {text-align:center; padding:3rem 1rem; background:linear-gradient(180deg,#f0fdf4,#ffffff); border:1px solid #bbf7d0; border-radius:16px;}
-.allclear .bigtick {width:56px; height:56px; border-radius:50%; background:#10b981; color:#ffffff !important; font-size:1.8rem; display:flex; align-items:center; justify-content:center; margin:0 auto .6rem auto; box-shadow:0 8px 20px rgba(16,185,129,.35);}
-.next {background:var(--acc2); border:1px solid var(--acc3); border-left:4px solid var(--acc); padding:.7rem 1.1rem; border-radius:10px; margin:.4rem 0 1rem 0; color:#312e81;}
+.acard {display:flex; align-items:center; gap:1rem; background:#ffffff; border:1px solid var(--line); border-left:4px solid var(--c,#1f2933); border-radius:8px; padding:.85rem 1.1rem; margin-bottom:.55rem;}
+.acard.red {--c:#b42318; --t:#9f1239;} .acard.amber {--c:#b7791f; --t:#92400e;} .acard.violet {--c:#5b3a8c; --t:#4c2d7a;}
+.acard .aico {display:none;}
+.acard .abody {flex:1;} .acard .atitle {font-weight:600; color:var(--ink);} .acard .asub {color:var(--mute); font-size:.86rem; margin-top:2px;}
+.acard .ameta {font-size:.78rem; font-weight:600; color:var(--t); background:#f3f4f6; border:1px solid var(--line); padding:3px 10px; border-radius:4px; white-space:nowrap;}
+.allclear {text-align:center; padding:2.6rem 1rem; background:var(--soft); border:1px solid var(--line); border-radius:8px;}
+.allclear .bigtick {width:48px; height:48px; border-radius:50%; background:#2e7d5b; color:#ffffff !important; font-size:1.5rem; display:flex; align-items:center; justify-content:center; margin:0 auto .6rem auto;}
+.next {background:var(--acc2); border:1px solid var(--acc3); border-left:4px solid #c2410c; padding:.65rem 1rem; border-radius:6px; margin:.4rem 0 1rem 0; color:#7c2d12;}
 
-/* landing */
-.hero {position:relative; overflow:hidden; padding:4rem 3.2rem 3.6rem 3.2rem; border-radius:22px; margin-top:.4rem; background:radial-gradient(1200px 400px at 85% -10%, rgba(167,139,250,.55), transparent 60%), radial-gradient(900px 380px at 0% 110%, rgba(56,189,248,.35), transparent 60%), linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#4f46e5 100%); box-shadow:0 24px 60px rgba(49,46,129,.35);}
-.hero::after {content:""; position:absolute; right:-80px; bottom:-120px; width:380px; height:380px; border-radius:50%; border:60px solid rgba(255,255,255,.06);}
-.hero .eyebrow {display:inline-block; color:#c7d2fe; font-size:.76rem; letter-spacing:.16em; text-transform:uppercase; font-weight:700; background:rgba(255,255,255,.10); padding:6px 14px; border-radius:999px; border:1px solid rgba(255,255,255,.18);}
-.hero h1 {font-size:3.6rem !important; margin:1rem 0 .7rem 0; color:#ffffff !important; font-weight:800; letter-spacing:-.04em;}
-.hero p {font-size:1.12rem; color:#dbe3ff; max-width:700px; line-height:1.65;}
-.stats {display:flex; gap:2.2rem; margin-top:1.8rem; flex-wrap:wrap;}
-.stats div {color:#ffffff;} .stats b {font-size:1.7rem; font-weight:800; display:block; color:#ffffff;} .stats span {font-size:.78rem; color:#e0e7ff; text-transform:uppercase; letter-spacing:.08em;}
-.feat {background:#ffffff; border:1px solid var(--line); border-radius:16px; padding:1.4rem; height:100%; box-shadow:var(--shadow); transition:transform .15s, box-shadow .15s;}
-.feat:hover {transform:translateY(-3px); box-shadow:var(--shadow2);}
-.feat .n {width:34px; height:34px; border-radius:10px; background:var(--acc2); color:var(--acc) !important; font-size:.85rem; font-weight:800; display:flex; align-items:center; justify-content:center;}
-.feat h4 {margin:.8rem 0 .4rem 0; color:var(--ink) !important;}
+/* landing: dark charcoal, flat, no gradients or shapes */
+.hero {padding:3.6rem 3rem 3.2rem 3rem; border-radius:10px; margin-top:.4rem; background:#1f2933;}
+.hero .eyebrow {display:inline-block; color:#fdba74; font-size:.76rem; letter-spacing:.14em; text-transform:uppercase; font-weight:600;}
+.hero h1 {font-size:3.2rem !important; margin:.8rem 0 .7rem 0; color:#ffffff !important; font-weight:700; letter-spacing:-.02em;}
+.hero p {font-size:1.08rem; color:#e5e7eb; max-width:720px; line-height:1.65;}
+.stats {display:flex; gap:2.4rem; margin-top:1.7rem; flex-wrap:wrap; border-top:1px solid #4b5563; padding-top:1.3rem;}
+.stats div {color:#ffffff;} .stats b {font-size:1.6rem; font-weight:700; display:block; color:#ffffff;} .stats span {font-size:.78rem; color:#d1d5db; text-transform:uppercase; letter-spacing:.08em;}
+.feat {background:#ffffff; border:1px solid var(--line); border-top:3px solid #c2410c; border-radius:8px; padding:1.3rem; height:100%;}
+.feat .n {color:#c2410c !important; font-size:.85rem; font-weight:700; letter-spacing:.06em;}
+.feat h4 {margin:.5rem 0 .4rem 0; color:var(--ink) !important;}
 .feat div.t {color:var(--mute); font-size:.92rem; line-height:1.55;}
 
 /* register cards */
-.card {display:flex; gap:1rem; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:1.05rem 1.15rem; margin-bottom:.45rem; box-shadow:var(--shadow); transition:transform .15s, box-shadow .15s, border-color .15s;}
-.card:hover {border-color:var(--acc3); transform:translateY(-2px); box-shadow:var(--shadow2);}
-.card h5 {margin:0 0 .4rem 0; font-size:1rem; font-weight:700; color:var(--ink) !important;}
+.card {display:flex; gap:1rem; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:1rem 1.1rem; margin-bottom:.45rem;}
+.card:hover {border-color:#9ca3af;}
+.card h5 {margin:0 0 .4rem 0; font-size:1rem; font-weight:600; color:var(--ink) !important;}
 .card small {color:var(--mute) !important;}
-.ring {--p:0; --c:#4f46e5; flex:none; width:58px; height:58px; border-radius:50%; background: conic-gradient(var(--c) calc(var(--p) * 1%), #e8ebf4 0); display:flex; align-items:center; justify-content:center;}
-.ring span {width:45px; height:45px; border-radius:50%; background:var(--panel); display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:800; color:var(--ink);}
-.badge {display:inline-block; padding:3px 10px; border-radius:999px; font-size:.66rem; font-weight:800; letter-spacing:.07em; border:1px solid;}
-.low {color:#047857; border-color:#a7f3d0; background:#ecfdf5;}
-.medium {color:#92400e; border-color:#fde68a; background:#fffbeb;}
-.high {color:#9a3412; border-color:#fdba74; background:#fff7ed;}
-.very_high {color:#9f1239; border-color:#fda4af; background:#fff1f2;}
-.prohibited {color:#5b21b6; border-color:#c4b5fd; background:#f5f3ff;}
+.ring {--p:0; --c:#1f2933; flex:none; width:56px; height:56px; border-radius:50%; background: conic-gradient(var(--c) calc(var(--p) * 1%), #e5e7eb 0); display:flex; align-items:center; justify-content:center;}
+.ring span {width:44px; height:44px; border-radius:50%; background:var(--panel); display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; color:var(--ink);}
+.badge {display:inline-block; padding:2px 9px; border-radius:4px; font-size:.66rem; font-weight:700; letter-spacing:.06em; border:1px solid;}
+.low {color:#1b5e43; border-color:#9fd3bb; background:#ecf7f1;}
+.medium {color:#7a4f0d; border-color:#e5c98a; background:#fbf5e6;}
+.high {color:#8f3d08; border-color:#efb48a; background:#fdf1e7;}
+.very_high {color:#8e1c12; border-color:#eba39b; background:#fdecea;}
+.prohibited {color:#4a2d75; border-color:#c3b0e0; background:#f3eefa;}
 
 /* stage tracker */
-.track {display:flex; align-items:flex-start; margin:.9rem 0 1.2rem 0; padding:1.1rem .6rem; background:var(--panel); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow);}
+.track {display:flex; align-items:flex-start; margin:.9rem 0 1.2rem 0; padding:1rem .6rem; background:var(--panel); border:1px solid var(--line); border-radius:8px;}
 .stg {flex:1; text-align:center; position:relative; padding:0 2px;}
-.stg:not(:last-child)::after {content:""; position:absolute; top:15px; left:50%; width:100%; height:3px; background:#e3e7f1; z-index:0; border-radius:2px;}
-.stg.done:not(:last-child)::after {background:linear-gradient(90deg,#4f46e5,#7c3aed);}
-.dot {position:relative; z-index:1; width:32px; height:32px; margin:0 auto; border-radius:50%; background:#eef0f7; color:var(--mute); border:1px solid #d3d8e6; font-size:.76rem; font-weight:700; line-height:30px;}
-.stg.done .dot {background:linear-gradient(135deg,#4f46e5,#7c3aed); color:#ffffff; border-color:transparent;}
-.stg.now .dot {background:#ffffff; color:var(--acc); border:2px solid var(--acc); box-shadow:0 0 0 5px rgba(79,70,229,.16);}
+.stg:not(:last-child)::after {content:""; position:absolute; top:15px; left:50%; width:100%; height:2px; background:#d1d5db; z-index:0;}
+.stg.done:not(:last-child)::after {background:#1f2933;}
+.dot {position:relative; z-index:1; width:30px; height:30px; margin:0 auto; border-radius:50%; background:#f3f4f6; color:var(--mute); border:1px solid #9ca3af; font-size:.76rem; font-weight:600; line-height:28px;}
+.stg.done .dot {background:#1f2933; color:#ffffff; border-color:#1f2933;}
+.stg.now .dot {background:#ffffff; color:#c2410c; border:2px solid #c2410c;}
 .lbl {font-size:.64rem; color:var(--mute); margin-top:8px; line-height:1.2;}
-.stg.now .lbl {color:var(--ink); font-weight:800;}
+.stg.now .lbl {color:var(--ink); font-weight:700;}
 </style>
 """
 
-def kpi(label, value, color="#4f46e5", icon=""):
+def kpi(label, value, color="#1f2933", icon=""):
     return (f"<div class='kpi' style='--k:{color}'><div class='ki'>{icon}</div>"
             f"<div class='v'>{value}</div><div class='l'>{label}</div></div>")
 
@@ -697,7 +684,7 @@ def topbar(page, role):
 def ring(u):
     pct = int(round(100 * (u["stage"] - 1) / 10)) if u["status"] != "retired" else 100
     if u["status"] == "production": pct = 100 if u["stage"] >= 7 else pct
-    return (f"<div class='ring' style='--p:{pct}; --c:{TIER_COL.get(u['tier'], '#4f46e5')}'><span>{u['stage']}/10</span></div>")
+    return (f"<div class='ring' style='--p:{pct}; --c:{TIER_COL.get(u['tier'], '#1f2933')}'><span>{u['stage']}/10</span></div>")
 
 def style_chart(ch):
     return ch.configure(background="#ffffff").configure_view(strokeWidth=0)\
@@ -730,7 +717,7 @@ def report_html(u, c):
     fu = "".join(f"<li><b>{E(q)}</b><br>{E(a)}</li>" for q, a in intake.get("follow_up", {}).items())
     return f"""<html><head><meta charset='utf-8'><title>{E(u['code'])}</title>
 <style>body{{font-family:Arial;margin:40px;color:#1f2937}} td,th{{border:1px solid #ccc;padding:6px;text-align:left}} table{{border-collapse:collapse;width:100%}}
-.cover{{background:#0f2a4a;color:white;padding:28px;border-radius:12px}} .tier{{display:inline-block;padding:4px 14px;border-radius:999px;color:white;font-weight:bold;background:{TIER_COL.get(u['tier'],'#555')}}}</style></head><body>
+.cover{{background:#1f2933;color:white;padding:28px;border-radius:12px}} .tier{{display:inline-block;padding:4px 14px;border-radius:999px;color:white;font-weight:bold;background:{TIER_COL.get(u['tier'],'#555')}}}</style></head><body>
 <div class='cover'><small>GovernAI AI System Assessment</small><h1>{E(u['code'])} - {E(u['name'])}</h1><span class='tier'>{TIER_LABEL.get(u['tier'], u['tier'].upper())}</span></div>
 <p><b>Business unit:</b> {E(u['bu'])} | <b>Model owner:</b> {E(intake.get('model_owner') or 'not named')} | <b>Tier:</b> {TIER_LABEL.get(u['tier'], u['tier'].upper())} (score {risk['total']}/100) | <b>Stage:</b> {u['stage']} {STAGES[u['stage']-1]} | <b>Status:</b> {u['status']} | <b>Next review:</b> {u['next_review'] or '-'}</p>
 <h2>Purpose</h2><p>{E(intake.get('purpose',''))}</p>
@@ -766,6 +753,7 @@ def landing():
         st.session_state["entered"] = True; st.rerun()
     st.caption("AI-assisted risk screening, not legal advice.")
 
+
 def collect_alerts(c, ucs):
     today = dt.date.today().isoformat()
     reviews = [u for u in ucs if u["next_review"] and u["next_review"] < today and u["status"] == "production"]
@@ -774,6 +762,7 @@ def collect_alerts(c, ucs):
     acts = c.execute("select a.action, a.owner, a.due, u.code, u.name from actions a join use_cases u on u.id=a.uc where a.status='open' and a.due < ? order by a.due", (today,)).fetchall()
     return dict(reviews=reviews, incidents=inc_high, incidents_all=inc_all, actions=acts,
                 total=len(reviews) + len(inc_high) + len(acts))
+
 
 def alert_card(kind, title, sub, meta):
     return (f"<div class='acard {kind}'><div class='aico'></div><div class='abody'><div class='atitle'>{E(title)}</div>"
@@ -812,11 +801,11 @@ def page_dashboard(c, ucs):
     al = collect_alerts(c, ucs)
     hp = int(df["tier"].isin(["very_high", "high", "prohibited"]).sum())
     st.markdown("<div class='kpis'>" +
-                kpi("AI systems", len(df), "#4f46e5", "&#9638;") +
-                kpi("High and above", hp, "#e11d48", "&#9650;") +
-                kpi("In production", int((df["status"] == "production").sum()), "#059669", "&#10003;") +
-                kpi("Open alerts", al["total"], "#d97706", "&#9888;") +
-                kpi("Open incidents", len(al["incidents_all"]), "#7c3aed", "&#9679;") + "</div>", unsafe_allow_html=True)
+                kpi("AI systems", len(df), "#1f2933", "") +
+                kpi("High and above", hp, "#b42318", "") +
+                kpi("In production", int((df["status"] == "production").sum()), "#2e7d5b", "") +
+                kpi("Open alerts", al["total"], "#c2410c", "") +
+                kpi("Open incidents", len(al["incidents_all"]), "#5b3a8c", "") + "</div>", unsafe_allow_html=True)
     st.markdown("<div class='legend'><b>How tiers work.</b> "
                 + " &nbsp;|&nbsp; ".join(f"{badge(t)} {TIER_MEANING[t]}" for t in TIER_ORDER[::-1]) + "</div>", unsafe_allow_html=True)
     tiers = [t for t in TIER_ORDER[::-1]]
@@ -827,12 +816,12 @@ def page_dashboard(c, ucs):
     _arc = alt.Chart(td).mark_arc(innerRadius=70, outerRadius=105, stroke="#ffffff", strokeWidth=3, cornerRadius=4).encode(
         theta="count:Q", color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers]), legend=alt.Legend(title=None, orient="right")),
         tooltip=["label", "count"])
-    _mid = alt.Chart(pd.DataFrame({"t": [str(len(df))]})).mark_text(size=34, fontWeight="bold", color="#0f172a").encode(text="t:N")
+    _mid = alt.Chart(pd.DataFrame({"t": [str(len(df))]})).mark_text(size=34, fontWeight="bold", color="#111827").encode(text="t:N")
     a.altair_chart(style_chart(_arc + _mid), use_container_width=True)
     sd = df["stage"].value_counts().rename_axis("stage").reset_index(name="count")
     sd["stage_name"] = sd["stage"].map(lambda i: f"{i}. {STAGES[int(i)-1]}")
     b.subheader("Systems by lifecycle stage")
-    b.altair_chart(style_chart(alt.Chart(sd).mark_bar(color="#6366f1", cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=18).encode(
+    b.altair_chart(style_chart(alt.Chart(sd).mark_bar(color="#374151", cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=18).encode(
         x=alt.X("count:Q", title=None, axis=alt.Axis(tickMinStep=1)), y=alt.Y("stage_name:N", sort=[f"{i}. {s}" for i, s in enumerate(STAGES, 1)], title=None),
         tooltip=["stage_name", "count"])), use_container_width=True)
 
@@ -848,7 +837,7 @@ def page_dashboard(c, ucs):
         color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers]), legend=None),
         tooltip=["code", "name", "score", "label"])), use_container_width=True)
     b2.subheader("Score vs lifecycle stage")
-    b2.altair_chart(style_chart(alt.Chart(df).mark_circle(size=220, opacity=.92, stroke="#ffffff", strokeWidth=2).encode(
+    b2.altair_chart(style_chart(alt.Chart(df).mark_circle(size=150, opacity=.9, stroke="#ffffff", strokeWidth=1.5).encode(
         x=alt.X("stage:Q", scale=alt.Scale(domain=[0.5, 10.5]), title="Lifecycle stage", axis=alt.Axis(tickMinStep=1)),
         y=alt.Y("score:Q", scale=alt.Scale(domain=[0, 100]), title="Risk score"),
         color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers]), legend=alt.Legend(title="Tier")),
@@ -859,7 +848,7 @@ def page_dashboard(c, ucs):
     if reg_rows:
         rc = pd.DataFrame(reg_rows).value_counts().reset_index(name="systems")
         st.subheader("Regulation coverage: how many systems each law applies to")
-        st.altair_chart(style_chart(alt.Chart(rc).mark_bar(color="#818cf8", cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=14).encode(
+        st.altair_chart(style_chart(alt.Chart(rc).mark_bar(color="#6b7280", cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=14).encode(
             x=alt.X("systems:Q", title="Systems in scope", axis=alt.Axis(tickMinStep=1)), y=alt.Y("regime:N", sort="-x", title=None),
             tooltip=["regime", "systems"])), use_container_width=True)
 
@@ -867,7 +856,7 @@ def page_dashboard(c, ucs):
     hm = df.groupby(["bu", "label"]).size().reset_index(name="count")
     st.altair_chart(style_chart(alt.Chart(hm).mark_rect(stroke="#ffffff", strokeWidth=3, cornerRadius=3).encode(
         x=alt.X("label:N", sort=[TIER_LABEL[t] for t in tiers], title=None), y=alt.Y("bu:N", title=None),
-        color=alt.Color("count:Q", scale=alt.Scale(range=["#e0e7ff", "#4f46e5"]), legend=None), tooltip=["bu", "label", "count"])), use_container_width=True)
+        color=alt.Color("count:Q", scale=alt.Scale(range=["#e5e7eb", "#c2410c"]), legend=None), tooltip=["bu", "label", "count"])), use_container_width=True)
 
 ALL_FRAMEWORKS = sorted({r[0] for r in REGS})
 
@@ -999,7 +988,7 @@ def page_detail(c, u, role):
         sc = pd.DataFrame({"dimension": list(risk["scores"]), "score": list(risk["scores"].values())})
         st.altair_chart(style_chart(alt.Chart(sc).mark_bar(cornerRadiusTopRight=4, cornerRadiusBottomRight=4).encode(
             x=alt.X("score:Q", scale=alt.Scale(domain=[0, 3]), title=None), y=alt.Y("dimension:N", sort=DIMS, title=None),
-            color=alt.Color("score:Q", scale=alt.Scale(domain=[1, 3], range=["#10b981", "#e11d48"]), legend=None))),
+            color=alt.Color("score:Q", scale=alt.Scale(domain=[1, 3], range=["#2e7d5b", "#b42318"]), legend=None))),
             use_container_width=True)
         for qq, aa in intake.get("follow_up", {}).items():
             st.write(f"**{qq}**  \n{aa}")
@@ -1052,7 +1041,7 @@ def page_detail(c, u, role):
             late = a["status"] == "open" and a["due"] < today
             with st.container(border=True):
                 st.markdown(f"**{E(a['action'])}**  \n<small>{E(a['finding'])} | owner {E(a['owner'])} | due {E(a['due'])}"
-                            f"{' | <b style=color:#9f1239>OVERDUE</b>' if late else ''} | {E(a['status'])}</small>", unsafe_allow_html=True)
+                            f"{' | <b style=color:#8e1c12>OVERDUE</b>' if late else ''} | {E(a['status'])}</small>", unsafe_allow_html=True)
                 if a["status"] == "open":
                     x1, x2, x3 = st.columns([2, 2, 1])
                     own = x1.text_input("Owner", a["owner"], key=f"ow{a['id']}")
