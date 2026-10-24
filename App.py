@@ -743,7 +743,7 @@ def landing():
         st.session_state["entered"] = True; st.rerun()
     st.caption("AI-assisted risk screening, not legal advice.")
 
-    def page_dashboard(c, ucs):
+def page_dashboard(c, ucs):
     st.title("Dashboard")
     st.caption("Portfolio view of every AI system, its risk and what needs attention.")
     df = pd.DataFrame(ucs)
