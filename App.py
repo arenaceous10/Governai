@@ -676,8 +676,7 @@ def topbar(page, role):
             f"<div class='crumb'><b>{E(page)}</b> &nbsp;/&nbsp; acting as <span class='pill'>{E(role)}</span></div></div>")
 
 def ring(u):
-    pct = int(round(100 * (u["stage"] - 1) / 10)) if u["status"] != "retired" else 100
-    if u["status"] == "production": pct = 100 if u["stage"] >= 7 else pct
+    pct = 100 if u["status"] == "retired" else int(round(100 * u["stage"] / 10))
     return (f"<div class='ring' style='--p:{pct}; --c:{TIER_COL.get(u['tier'], '#1f2933')}'><span>{u['stage']}/10</span></div>")
 
 def style_chart(ch):
