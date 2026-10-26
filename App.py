@@ -205,7 +205,12 @@ def password_hash(password):
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PASSWORD_ITERATIONS)
     return f"pbkdf2_sha256${PASSWORD_ITERATIONS}${salt.hex()}${digest.hex()}"
 
+def is_password_hash(encoded):
+    return encoded.startswith("pbkdf2_sha256$")
+
 def verify_password(password, encoded):
+    if not is_password_hash(encoded):
+        return hmac.compare_digest(password.encode("utf-8"), encoded.encode("utf-8"))
     try:
         algorithm, iterations, salt, expected = encoded.split("$")
         iterations = int(iterations)
@@ -217,6 +222,20 @@ def verify_password(password, encoded):
     except (ValueError, TypeError):
         return False
     return hmac.compare_digest(digest.hex(), expected)
+
+def authenticate_user(username, password):
+    normalized_username = username.strip().casefold()
+    with USER_FILE_LOCK:
+        users = read_users()
+        user = next((u for u in users if u.get("password_hash")
+                     and u["username"].casefold() == normalized_username), None)
+        if not user or not verify_password(password, user["password_hash"]):
+            return None
+        if not is_password_hash(user["password_hash"]):
+            user["password_hash"] = password_hash(password)
+            user["created_on"] = dt.date.today().isoformat()
+            write_users(users)
+        return user
 
 def read_users():
     if not USER_FILE.exists():
@@ -1352,9 +1371,12 @@ def login_page():
         password = st.text_input("Password", type="password")
         submitted = st.form_submit_button("Sign in", type="primary")
     if submitted:
-        user = next((u for u in users if u.get("password_hash")
-                     and u["username"].casefold() == username.strip().casefold()), None)
-        if user and verify_password(password, user["password_hash"]):
+        try:
+            user = authenticate_user(username, password)
+        except OSError as e:
+            st.error(f"Could not securely update the account file after sign-in: {e}")
+            return
+        if user:
             st.session_state["authenticated_user"] = user["username"]
             st.session_state["authenticated_role"] = user["role"]
             st.rerun()

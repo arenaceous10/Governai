@@ -4,7 +4,7 @@
 
 The app requires a sign-in. The first `governance_admin` account is created at startup from `GOVERNAI_ADMIN_USERNAME` and `GOVERNAI_ADMIN_PASSWORD`, supplied as deployment environment variables or Streamlit secrets. Use a password of at least 12 characters. The app does not provide a default account or password.
 
-On first startup, the app creates `users_information.csv` beside `App.py` with 12 example usernames and assigned roles. These sample rows have blank password hashes and cannot sign in until an administrator sets passwords from **User accounts**. The app checks the submitted username and password against this file; only password hashes are stored.
+On first startup, the app creates `users_information.csv` beside `App.py` with 12 example usernames and assigned roles. These sample rows have blank passwords and cannot sign in until an administrator sets passwords from **User accounts**. The app checks the submitted username and password against this file. For compatibility with manually populated files, a non-hash password value is accepted once and immediately replaced with a salted PBKDF2-SHA256 hash after successful sign-in. Prefer setting passwords in-app so plaintext is never saved to disk.
 
 | Column | Contents |
 | --- | --- |
