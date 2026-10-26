@@ -1,5 +1,6 @@
 governai.db
 .streamlit/secrets.toml
+users_information.csv
 __pycache__/
 *.pyc
 .venv/
