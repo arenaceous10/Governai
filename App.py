@@ -102,7 +102,7 @@ def approvers(stage, tier):
     if tier in ("medium", "high") and stage in GATE_STAGES:
         req += ["privacy_reviewer", "risk_reviewer"]
     if tier == "high" and stage in GATE_STAGES:
-        req += ["legal_reviewer", "review_board", "governance_admin"]
+        req += ["legal_reviewer", "review_board"]
     return req
 
 REGS = [
@@ -214,7 +214,7 @@ TIER_ORDER = ["prohibited", "high", "medium", "low"]
 TIER_MEANING = {
     "low": "Minimal risk. Owner sign-off only, review every 24 months.",
     "medium": "Limited risk. Privacy and risk review at the gates, transparency duties apply, review every 12 months.",
-    "high": "High risk. Privacy, risk, legal, review board and governance admin sign-off at the gates, review every 6 months.",
+    "high": "High risk. Privacy, risk, legal and review board sign-off at the gates. Governance admin can override a gate with a logged reason. Review every 6 months.",
     "prohibited": "Unacceptable risk. Prohibited practice: cannot proceed, stop and escalate to legal.",
 }
 
@@ -247,6 +247,7 @@ def auto_triggers(trig, data, geos):
     t = list(trig)
     if "Biometric" in data and TRIGGERS[1] not in t: t.append(TRIGGERS[1])
     if "Children" in data and TRIGGERS[5] not in t: t.append(TRIGGERS[5])
+    if "Health" in data and TRIGGERS[2] not in t: t.append(TRIGGERS[2])   # special category health data
     return t
 
 def law_reasons(geos, data_types, domain=""):
@@ -289,6 +290,9 @@ def insert_use_case(c, name, bu, intake, proh, trig, scores, actor="submitter"):
     t = auto_triggers(trig, intake.get("data", []), intake.get("geos", []))
     geo_pts = min(3, max(0, len(intake.get("geos", [])) - 1))
     tier, total, reasons = classify(proh, t, scores, geo_pts)
+    ua = int(intake.get("unanswered_count") or 0)
+    if ua:   # flagged for reviewers; does not change the tier
+        reasons.append("1 governance question was left unanswered" if ua == 1 else f"{ua} governance questions were left unanswered")
     laws = intake.get("frameworks") or applicable_laws(intake.get("geos", []), intake.get("data", []), intake.get("domain", ""))
     n = (c.execute("select max(id) from use_cases").fetchone()[0] or 0) + 1
     code = f"AI-{dt.date.today().year}-{n:04d}"
@@ -420,10 +424,10 @@ def suggest_actions(hits):
     return out
 
 # ---------- RAG + Gemini screening ----------
-def retrieve(query, laws, k=6):
+def retrieve(query, laws, k=12):
     docs = [r for r in REGS if r[0] in laws]
     if not docs: return []
-    texts = [f"{a} {b} {c}" for a, b, c in docs]
+    texts = [f"{a} {b} {t}" for a, b, t in docs]
     vec = TfidfVectorizer(stop_words="english").fit(texts + [query])
     sims = cosine_similarity(vec.transform([query]), vec.transform(texts))[0]
     ranked = sorted(zip(sims, range(len(docs))), reverse=True)[:k]
@@ -483,74 +487,56 @@ def advance(u, actor):
     return []
 
 
-# ---------- use-case-specific questions ----------
-QBANK = {
-    "pricing": (["pricing", "premium", "underwriting", "rate"], [
-        "Which rating factors does the model use, and could any act as a proxy for a protected trait (e.g. postcode for ethnicity)?",
-        "How will you show fair value to customers under FCA Consumer Duty?",
-        "Can a customer get an explanation of how their price was set?"]),
-    "claims": (["claim", "triage", "settlement"], [
-        "Can the model decline or delay a claim without a human reviewing it?",
-        "How are vulnerable customers identified and routed?",
-        "What is the appeal route if a claim is wrongly flagged?"]),
-    "fraud": (["fraud", "suspicious", "anomaly"], [
-        "What happens to a customer once flagged - is any action automatic?",
-        "How do you measure false positives across customer groups?",
-        "Who reviews flags before any customer contact?"]),
-    "hr": (["cv", "recruit", "hiring", "interview", "candidate", "employee", "hr"], [
-        "Does the system rank, filter or reject candidates without human review?",
-        "Has it been tested for bias by gender, age, ethnicity and disability?",
-        "Are candidates told AI is used, and can they request human review?"]),
-    "genai": (["chatbot", "llm", "gpt", "gemini", "generate", "assistant", "summar", "copy"], [
-        "Are users clearly told they are talking to AI or reading AI-generated content?",
-        "How do you prevent and detect hallucinated answers?",
-        "Can prompts or outputs contain personal or confidential data, and where is it sent?"]),
-    "health": (["health", "medical", "patient", "diagnos"], [
-        "Is health data processed, and under which legal condition?",
-        "Could outputs influence clinical or coverage decisions?",
-        "How is accuracy validated across patient groups?"]),
-    "biometric": (["face", "voice", "biometric", "emotion", "speech"], [
-        "Does the system identify people or infer emotions or traits?",
-        "Is it used on employees or in public spaces?",
-        "Have you checked EU AI Act Art. 5 prohibitions?"]),
-}
-GENERIC_Q = ["Who is affected by the output and how significant is the effect?",
-             "What happens if the system is wrong, and can it be reversed?",
-             "Who can override or switch off the system?"]
-
-def bank_questions(text):
-    t = text.lower(); qs = []
-    for _, (keys, q) in QBANK.items():
-        if any(k in t for k in keys): qs += q
-    return (qs or GENERIC_Q)[:6]
-
-def generate_questions(desc, domain):
+# ---------- use-case-specific questions (written by Gemini from the submitter's own description) ----------
+def generate_questions(desc, domain, geos, data, n_text=9, n_yn=6):
     key = secret("GEMINI_API_KEY")
-    if key:
-        model = secret("GEMINI_MODEL", "gemini-2.0-flash")
-        prompt = ("You are an AI governance reviewer. For the AI use case below, write 5 specific follow-up questions "
-                  "a risk reviewer must ask before approval, covering fairness, data, automation, transparency and "
-                  "applicable law. Return ONLY a JSON array of strings.\n\nDomain: " + domain + "\nUse case: " + desc)
-        try:
-            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
-                              json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=45)
-            r.raise_for_status()
-            txt = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-            txt = txt[txt.find("["): txt.rfind("]") + 1]
-            qs = [str(q) for q in json.loads(txt) if str(q).strip()]
-            if qs: return qs[:6], "Gemini"
-        except Exception:
-            pass
-    return bank_questions(desc + " " + domain), "built-in question bank"
+    if not key:
+        return [], "No Gemini key set"
+    model = secret("GEMINI_MODEL", "gemini-2.0-flash")
+    prompt = (
+        "You are a senior AI governance and risk reviewer. A submitter is registering an AI system for approval. "
+        "First work out exactly what this system is, who it affects, what data it touches, what decisions it supports "
+        "and what could go wrong. Then write governance questions that are specific to THIS system, using its own "
+        "terms from the description. Do not write generic questions that would fit any AI system. "
+        "For example, a healthcare chatbot needs questions about clinical advice, emergency escalation, health data "
+        "consent and medical device rules, while a pricing model needs questions about proxy variables and fair value.\n\n"
+        f"Write exactly {n_text} open-ended questions and exactly {n_yn} yes/no questions, {n_text + n_yn} in total. "
+        "Cover, where relevant to this system: who is affected and how seriously, data and lawful basis, bias and fairness, "
+        "level of human oversight, transparency to users, accuracy and validation, security and vendor risk, "
+        "incident handling, and the laws that apply in the stated geographies. "
+        "Yes/no questions must be answerable with a plain yes or no. Alternate between the two types.\n\n"
+        "Return ONLY a JSON array. Each item is {\"q\": \"question text\", \"type\": \"text\" or \"yesno\"}.\n\n"
+        f"Domain: {domain}\nGeographies: {', '.join(geos) or 'not stated'}\n"
+        f"Data types: {', '.join(data) or 'not stated'}\nUse case description: {desc}"
+    )
+    try:
+        r = requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}",
+            json={"contents": [{"parts": [{"text": prompt}]}],
+                  "generationConfig": {"temperature": 0.4, "responseMimeType": "application/json"}},
+            timeout=60)
+        r.raise_for_status()
+        txt = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        txt = txt[txt.find("["): txt.rfind("]") + 1]
+        out = []
+        for q in json.loads(txt):
+            if isinstance(q, dict) and str(q.get("q", "")).strip():
+                kind = "yn" if str(q.get("type", "")).lower().startswith("y") else "text"
+                out.append((str(q["q"]).strip(), kind))
+        if out:
+            return out[:n_text + n_yn + 2], "Gemini"
+        return [], "Gemini returned no usable questions"
+    except Exception as e:
+        return [], f"Gemini unavailable ({type(e).__name__})"
 
 # ---------- look and feel ----------
-TIER_COL = {"low": "#2e7d5b", "medium": "#b7791f", "high": "#b42318", "prohibited": "#5b3a8c"}
-ACCENT = "#e8590c"
+TIER_COL = {"low": "#2e7d5b", "medium": "#A15C07", "high": "#b42318", "prohibited": "#5b3a8c"}   # white text on each is at least 4.5:1
+ACCENT = "#0F766E"
 CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-:root {--bg:#ffffff; --soft:#f6f7f9; --panel:#ffffff; --line:#dfe3e8; --text:#1f2933; --mute:#52606d; --ink:#111827;
-       --dark:#1f2933; --acc:#c2410c; --acc2:#fff4ec; --acc3:#f3c9ad; --shadow:0 1px 2px rgba(17,24,39,.06);}
+:root {--bg:#F5F3EF; --soft:#E6F4F1; --panel:#ffffff; --line:#D9D4CA; --text:#1A202C; --mute:#5B6472; --ink:#0B1F3A;
+       --dark:#0B1F3A; --acc:#0F766E; --acc2:#E6F4F1; --acc3:#B5D9D3; --shadow:0 1px 2px rgba(17,24,39,.06);}
 html, body, [class*="css"], .stMarkdown, .stTextInput, .stSelectbox, .stButton {font-family:'Inter',sans-serif;}
 .stApp {background: var(--bg); color: var(--text);}
 header[data-testid="stHeader"] {background: transparent;}
@@ -559,42 +545,47 @@ h1, h2, h3, h4, h5 {color: var(--ink) !important; letter-spacing:-0.01em; font-w
 h1 {font-size:1.9rem !important;}
 .stApp label, .stApp [data-testid="stWidgetLabel"] p {color: var(--text) !important; font-weight:500;}
 [data-testid="stCaptionContainer"], .stCaption, small {color: var(--mute) !important;}
+[data-testid="stCaptionContainer"] {opacity:1 !important;}
 hr {border-color: var(--line);}
 
-/* sidebar: light grey, dark text, everything readable */
-section[data-testid="stSidebar"] {background:#f3f4f6; border-right:1px solid var(--line);}
-section[data-testid="stSidebar"] * {color:#1f2933;}
-.sb-brand {display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.15rem; color:#111827; margin:.3rem 0 1.1rem 0;}
-.sb-brand span {color:#111827 !important;}
+/* sidebar: navy, light text */
+section[data-testid="stSidebar"] {background:#0B1F3A; border-right:1px solid #0B1F3A;}
+section[data-testid="stSidebar"] * {color:#E2E8F0;}
+.sb-brand {display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.15rem; color:#ffffff; margin:.3rem 0 1.1rem 0;}
+.sb-brand span {color:#ffffff !important;}
+section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p, section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] label * {color:#E2E8F0 !important;}
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"], section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] * {color:#E2E8F0 !important;}
 section[data-testid="stSidebar"] [role="radiogroup"] label {padding:.5rem .75rem; border-radius:6px; margin-bottom:2px;}
-section[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#e5e7eb;}
-section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#ffffff; box-shadow:inset 3px 0 0 #c2410c, 0 0 0 1px #dfe3e8; font-weight:600;}
-section[data-testid="stSidebar"] [data-baseweb="select"] > div {background:#ffffff !important; border:1px solid #6b7280 !important;}
-section[data-testid="stSidebar"] [data-baseweb="select"] * {color:#111827 !important; -webkit-text-fill-color:#111827 !important;}
-section[data-testid="stSidebar"] .stButton > button {background:#ffffff; color:#111827; border:1px solid #6b7280; border-radius:6px;}
-section[data-testid="stSidebar"] .stButton > button:hover {border-color:#c2410c; color:#c2410c;}
+section[data-testid="stSidebar"] [role="radiogroup"] label:hover {background:#13294B;}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {background:#E6F4F1; box-shadow:inset 3px 0 0 #0F766E; font-weight:600;}
+section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked), section[data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) * {color:#0B1F3A !important;}
+.sb-role {border:1px solid #3B5273; border-radius:6px; padding:.5rem .75rem; margin-bottom:.6rem; font-size:.9rem; color:#E2E8F0;}
+.sb-role b {color:#ffffff;}
+section[data-testid="stSidebar"] .stButton > button {background:#ffffff; border:1px solid #ffffff; border-radius:6px;}
+section[data-testid="stSidebar"] .stButton > button, section[data-testid="stSidebar"] .stButton > button * {color:#0B1F3A !important;}
+section[data-testid="stSidebar"] .stButton > button:hover {background:#E6F4F1; border-color:#E6F4F1;}
 
 /* inputs: white fields, dark text, visible border, in the main page and in popups */
-.stTextInput input, .stTextArea textarea, .stDateInput input, .stNumberInput input {background:#ffffff !important; color:#111827 !important; -webkit-text-fill-color:#111827 !important; border:1px solid #6b7280 !important; border-radius:6px;}
-.stTextInput input::placeholder, .stTextArea textarea::placeholder {color:#6b7280 !important; -webkit-text-fill-color:#6b7280 !important;}
-[data-baseweb="select"] > div, [data-baseweb="input"] {background:#ffffff !important; border:1px solid #6b7280 !important; border-radius:6px;}
-[data-baseweb="select"] *, [data-baseweb="popover"] *, [data-baseweb="menu"] * {color:#111827 !important; -webkit-text-fill-color:#111827 !important;}
+.stTextInput input, .stTextArea textarea, .stDateInput input, .stNumberInput input {background:#ffffff !important; color:#1A202C !important; -webkit-text-fill-color:#1A202C !important; border:1px solid #5B6472 !important; border-radius:6px;}
+.stTextInput input::placeholder, .stTextArea textarea::placeholder {color:#5B6472 !important; -webkit-text-fill-color:#5B6472 !important;}
+[data-baseweb="select"] > div, [data-baseweb="input"] {background:#ffffff !important; border:1px solid #5B6472 !important; border-radius:6px;}
+[data-baseweb="select"] *, [data-baseweb="popover"] *, [data-baseweb="menu"] * {color:#1A202C !important; -webkit-text-fill-color:#1A202C !important;}
 [data-baseweb="popover"], [data-baseweb="menu"] {background:#ffffff !important;}
-[data-baseweb="tag"] {background:#e5e7eb !important; border-radius:4px;} [data-baseweb="tag"] * {color:#111827 !important;}
-.stTextInput input:focus, .stTextArea textarea:focus {border-color:#c2410c !important; box-shadow:0 0 0 2px rgba(194,65,12,.20) !important;}
+[data-baseweb="tag"] {background:#E6F4F1 !important; border-radius:4px;} [data-baseweb="tag"] * {color:#1A202C !important;}
+.stTextInput input:focus, .stTextArea textarea:focus {border-color:#0F766E !important; box-shadow:0 0 0 2px rgba(15,118,110,.25) !important;}
 
 /* buttons */
-.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {background:#ffffff; color:#111827; border:1px solid #6b7280; border-radius:6px; font-weight:500;}
-.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {border-color:#c2410c; color:#c2410c;}
-.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {background:#c2410c; color:#ffffff; border:1px solid #c2410c;}
-.stButton > button[kind="primary"]:hover {background:#9a3412; color:#ffffff; border-color:#9a3412;}
+.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {background:#ffffff; color:#1A202C; border:1px solid #5B6472; border-radius:6px; font-weight:500;}
+.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {border-color:#0F766E; color:#0F766E;}
+.stButton > button[kind="primary"], .stFormSubmitButton > button[kind="primary"] {background:#0F766E; color:#ffffff; border:1px solid #0F766E;}
+.stButton > button[kind="primary"]:hover {background:#115E59; color:#ffffff; border-color:#115E59;}
 .stButton > button:disabled {opacity:.5;}
 
 /* tabs, expanders, forms */
 .stTabs [data-baseweb="tab-list"] {gap:4px; border-bottom:1px solid var(--line);}
 .stTabs [data-baseweb="tab"] {color:var(--mute); padding:.5rem 1rem;}
-.stTabs [aria-selected="true"] {color:#111827 !important; font-weight:600;}
-.stTabs [data-baseweb="tab-highlight"] {background:#c2410c !important; height:2px;}
+.stTabs [aria-selected="true"] {color:#1A202C !important; font-weight:600;}
+.stTabs [data-baseweb="tab-highlight"] {background:#0F766E !important; height:2px;}
 [data-testid="stExpander"] {background:var(--panel); border:1px solid var(--line); border-radius:8px;}
 [data-testid="stExpander"] summary, [data-testid="stExpander"] summary * {color:var(--text) !important;}
 [data-testid="stVerticalBlockBorderWrapper"] {border-color:var(--line) !important; background:var(--panel); border-radius:8px;}
@@ -603,15 +594,15 @@ section[data-testid="stSidebar"] .stButton > button:hover {border-color:#c2410c;
 div[data-testid="stAlert"] {border-radius:8px;}
 
 /* top bar */
-.topbar {display:flex; align-items:center; justify-content:space-between; padding:.65rem 1.1rem; margin-bottom:1.2rem; background:#1f2933; border-radius:8px;}
+.topbar {display:flex; align-items:center; justify-content:space-between; padding:.65rem 1.1rem; margin-bottom:1.2rem; background:#0B1F3A; border-radius:8px;}
 .brand {display:flex; align-items:center; gap:.65rem; font-weight:700; font-size:1.05rem; color:#ffffff;}
-.logo {width:28px; height:28px; border-radius:6px; background:#c2410c; display:flex; align-items:center; justify-content:center; color:#ffffff !important; font-weight:700; font-size:.9rem;}
-.crumb {color:#d1d5db; font-size:.85rem;} .crumb b {color:#ffffff; font-weight:600;}
-.pill {font-size:.74rem; padding:3px 10px; border-radius:4px; border:1px solid #6b7280; color:#ffffff; background:#374151; font-weight:600;}
+.logo {width:28px; height:28px; border-radius:6px; background:#0F766E; display:flex; align-items:center; justify-content:center; color:#ffffff !important; font-weight:700; font-size:.9rem;}
+.crumb {color:#E2E8F0; font-size:.85rem;} .crumb b {color:#ffffff; font-weight:600;}
+.pill {font-size:.74rem; padding:3px 10px; border-radius:4px; border:1px solid #0F766E; color:#ffffff; background:#0F766E; font-weight:600;}
 
 /* KPI tiles: flat, no decoration */
-.kpis {display:grid; grid-template-columns:repeat(5,1fr); gap:1rem; margin:.2rem 0 1.4rem 0;}
-.kpi {background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--k,#1f2933); border-radius:8px; padding:1rem 1.1rem;}
+.kpis {display:grid; grid-template-columns:repeat(6,1fr); gap:1rem; margin:.2rem 0 1.4rem 0;}
+.kpi {background:var(--panel); border:1px solid var(--line); border-top:3px solid var(--k,#0B1F3A); border-radius:8px; padding:1rem 1.1rem;}
 .kpi .ki {display:none;}
 .kpi .v {font-size:2.1rem; font-weight:700; color:var(--ink); line-height:1.1;}
 .kpi .l {font-size:.74rem; color:var(--mute); margin-top:.3rem; text-transform:uppercase; letter-spacing:.06em; font-weight:600;}
@@ -620,33 +611,41 @@ div[data-testid="stAlert"] {border-radius:8px;}
 .legend {background:var(--soft); border:1px solid var(--line); border-radius:8px; padding:.8rem 1.1rem; margin-bottom:1.1rem; color:var(--text); font-size:.88rem; line-height:1.9;}
 
 /* alerts page */
-.acard {display:flex; align-items:center; gap:1rem; background:#ffffff; border:1px solid var(--line); border-left:4px solid var(--c,#1f2933); border-radius:8px; padding:.85rem 1.1rem; margin-bottom:.55rem;}
+.acard {display:flex; align-items:center; gap:1rem; background:#ffffff; border:1px solid var(--line); border-left:4px solid var(--c,#0B1F3A); border-radius:8px; padding:.85rem 1.1rem; margin-bottom:.55rem;}
 .acard.red {--c:#b42318; --t:#9f1239;} .acard.amber {--c:#b7791f; --t:#92400e;} .acard.violet {--c:#5b3a8c; --t:#4c2d7a;}
 .acard .aico {display:none;}
 .acard .abody {flex:1;} .acard .atitle {font-weight:600; color:var(--ink);} .acard .asub {color:var(--mute); font-size:.86rem; margin-top:2px;}
-.acard .ameta {font-size:.78rem; font-weight:600; color:var(--t); background:#f3f4f6; border:1px solid var(--line); padding:3px 10px; border-radius:4px; white-space:nowrap;}
+.acard .ameta {font-size:.78rem; font-weight:600; color:var(--t); background:#F5F3EF; border:1px solid var(--line); padding:3px 10px; border-radius:4px; white-space:nowrap;}
 .allclear {text-align:center; padding:2.6rem 1rem; background:var(--soft); border:1px solid var(--line); border-radius:8px;}
 .allclear .bigtick {width:48px; height:48px; border-radius:50%; background:#2e7d5b; color:#ffffff !important; font-size:1.5rem; display:flex; align-items:center; justify-content:center; margin:0 auto .6rem auto;}
-.next {background:var(--acc2); border:1px solid var(--acc3); border-left:4px solid #c2410c; padding:.65rem 1rem; border-radius:6px; margin:.4rem 0 1rem 0; color:#7c2d12;}
+.next {background:var(--acc2); border:1px solid var(--acc3); border-left:4px solid #0F766E; padding:.65rem 1rem; border-radius:6px; margin:.4rem 0 1rem 0; color:#0B1F3A;}
 
-/* landing: dark charcoal, flat, no gradients or shapes */
-.hero {padding:3.6rem 3rem 3.2rem 3rem; border-radius:10px; margin-top:.4rem; background:#1f2933;}
-.hero .eyebrow {display:inline-block; color:#fdba74; font-size:.76rem; letter-spacing:.14em; text-transform:uppercase; font-weight:600;}
+/* landing: navy hero on warm grey, flat, no gradients or shapes */
+.hero {padding:3.2rem 3rem 2.6rem 3rem; border-radius:10px; margin-top:.4rem; background:#0B1F3A;}
+.hero .eyebrow {display:inline-block; color:#E2E8F0; font-size:.76rem; letter-spacing:.14em; text-transform:uppercase; font-weight:600;}
 .hero h1 {font-size:3.2rem !important; margin:.8rem 0 .7rem 0; color:#ffffff !important; font-weight:700; letter-spacing:-.02em;}
-.hero p {font-size:1.08rem; color:#e5e7eb; max-width:720px; line-height:1.65;}
-.stats {display:flex; gap:2.4rem; margin-top:1.7rem; flex-wrap:wrap; border-top:1px solid #4b5563; padding-top:1.3rem;}
-.stats div {color:#ffffff;} .stats b {font-size:1.6rem; font-weight:700; display:block; color:#ffffff;} .stats span {font-size:.78rem; color:#d1d5db; text-transform:uppercase; letter-spacing:.08em;}
-.feat {background:#ffffff; border:1px solid var(--line); border-top:3px solid #c2410c; border-radius:8px; padding:1.3rem; height:100%;}
-.feat .n {color:#c2410c !important; font-size:.85rem; font-weight:700; letter-spacing:.06em;}
+.hero p {font-size:1.08rem; color:#E2E8F0; max-width:720px; line-height:1.65;}
+.stats {display:flex; gap:.8rem; margin-top:1.6rem; flex-wrap:wrap;}
+.chip {border:1px solid #3B5273; border-radius:8px; padding:.7rem 1.1rem; min-width:150px;}
+.chip b {display:block; font-size:1.6rem; font-weight:700; color:#ffffff;}
+.chip span {font-size:.76rem; color:#E2E8F0; text-transform:uppercase; letter-spacing:.08em;}
+.sect {margin:2rem 0 .2rem 0; font-size:1.3rem; font-weight:600; color:#0B1F3A;}
+.sectsub {color:#5B6472; font-size:.92rem; margin-bottom:.8rem;}
+[class*="st-key-rc_"] {background:#F5F3EF; border:1px solid #D9D4CA; border-radius:8px; padding:1rem 1.1rem 1rem 1.1rem;}
+.rc-name {font-weight:600; color:#0B1F3A; font-size:1.02rem; margin-bottom:.25rem;}
+.rc-line {color:#5B6472; font-size:.88rem; line-height:1.45; min-height:5.4em;}
+.feat {background:#F5F3EF; border:1px solid #D9D4CA; border-top:3px solid #0F766E; border-radius:8px; padding:1.3rem; min-height:11rem;}
+.feat .n {color:#0F766E !important; font-size:.85rem; font-weight:700; letter-spacing:.06em;}
 .feat h4 {margin:.5rem 0 .4rem 0; color:var(--ink) !important;}
 .feat div.t {color:var(--mute); font-size:.92rem; line-height:1.55;}
+.demo-note {background:#E6F4F1; border:1px solid #B5D9D3; border-radius:6px; padding:.6rem .9rem; color:#0B1F3A; font-size:.88rem; margin:.8rem 0 0 0;}
 
 /* register cards */
 .card {display:flex; gap:1rem; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:1rem 1.1rem; margin-bottom:.45rem;}
 .card:hover {border-color:#9ca3af;}
 .card h5 {margin:0 0 .4rem 0; font-size:1rem; font-weight:600; color:var(--ink) !important;}
 .card small {color:var(--mute) !important;}
-.ring {--p:0; --c:#1f2933; flex:none; width:56px; height:56px; border-radius:50%; background: conic-gradient(var(--c) calc(var(--p) * 1%), #e5e7eb 0); display:flex; align-items:center; justify-content:center;}
+.ring {--p:0; --c:#0B1F3A; flex:none; width:56px; height:56px; border-radius:50%; background: conic-gradient(var(--c) calc(var(--p) * 1%), #e5e7eb 0); display:flex; align-items:center; justify-content:center;}
 .ring span {width:44px; height:44px; border-radius:50%; background:var(--panel); display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; color:var(--ink);}
 .badge {display:inline-block; padding:2px 9px; border-radius:4px; font-size:.66rem; font-weight:700; letter-spacing:.06em; border:1px solid;}
 .low {color:#1b5e43; border-color:#9fd3bb; background:#ecf7f1;}
@@ -657,17 +656,17 @@ div[data-testid="stAlert"] {border-radius:8px;}
 /* stage tracker */
 .track {display:flex; align-items:flex-start; margin:.9rem 0 1.2rem 0; padding:1rem .6rem; background:var(--panel); border:1px solid var(--line); border-radius:8px;}
 .stg {flex:1; text-align:center; position:relative; padding:0 2px;}
-.stg:not(:last-child)::after {content:""; position:absolute; top:15px; left:50%; width:100%; height:2px; background:#d1d5db; z-index:0;}
-.stg.done:not(:last-child)::after {background:#1f2933;}
+.stg:not(:last-child)::after {content:""; position:absolute; top:15px; left:50%; width:100%; height:2px; background:#E2E8F0; z-index:0;}
+.stg.done:not(:last-child)::after {background:#0B1F3A;}
 .dot {position:relative; z-index:1; width:30px; height:30px; margin:0 auto; border-radius:50%; background:#f3f4f6; color:var(--mute); border:1px solid #9ca3af; font-size:.76rem; font-weight:600; line-height:28px;}
-.stg.done .dot {background:#1f2933; color:#ffffff; border-color:#1f2933;}
-.stg.now .dot {background:#ffffff; color:#c2410c; border:2px solid #c2410c;}
+.stg.done .dot {background:#0B1F3A; color:#ffffff; border-color:#0B1F3A;}
+.stg.now .dot {background:#ffffff; color:#0F766E; border:2px solid #0F766E;}
 .lbl {font-size:.64rem; color:var(--mute); margin-top:8px; line-height:1.2;}
 .stg.now .lbl {color:var(--ink); font-weight:700;}
 </style>
 """
 
-def kpi(label, value, color="#1f2933", icon=""):
+def kpi(label, value, color="#0B1F3A", icon=""):
     return (f"<div class='kpi' style='--k:{color}'><div class='ki'>{icon}</div>"
             f"<div class='v'>{value}</div><div class='l'>{label}</div></div>")
 
@@ -677,12 +676,12 @@ def topbar(page, role):
 
 def ring(u):
     pct = 100 if u["status"] == "retired" else int(round(100 * u["stage"] / 10))
-    return (f"<div class='ring' style='--p:{pct}; --c:{TIER_COL.get(u['tier'], '#1f2933')}'><span>{u['stage']}/10</span></div>")
+    return (f"<div class='ring' style='--p:{pct}; --c:{TIER_COL.get(u['tier'], '#0B1F3A')}'><span>{u['stage']}/10</span></div>")
 
 def style_chart(ch):
-    return ch.configure(background="#ffffff").configure_view(strokeWidth=0)\
-             .configure_axis(labelColor="#475569", titleColor="#475569", gridColor="#eef0f6", domainColor="#d5d9e6", tickColor="#d5d9e6", labelFontSize=12, titleFontSize=12)\
-             .configure_legend(labelColor="#161b2e", titleColor="#475569", labelFontSize=12)
+    return ch.configure(background="#F5F3EF").configure_view(strokeWidth=0)\
+             .configure_axis(labelColor="#5B6472", titleColor="#5B6472", gridColor="#E3DFD6", domainColor="#C9C3B6", tickColor="#C9C3B6", labelFontSize=12, titleFontSize=12)\
+             .configure_legend(labelColor="#1A202C", titleColor="#5B6472", labelFontSize=12)
 
 def E(x):
     return html.escape(str(x if x is not None else ""))
@@ -704,20 +703,24 @@ def report_html(u, c):
     inc = c.execute("select title,severity,status,at from incidents where uc=?", (u["id"],)).fetchall()
     scr = c.execute("select note from screenings where uc=? order by id desc limit 1", (u["id"],)).fetchone()
     acts = c.execute("select finding,action,owner,due,status from actions where uc=? order by due", (u["id"],)).fetchall()
+    ovr = c.execute("select at,actor,detail from audit where uc=? and action='gate_override' order by at", (u["id"],)).fetchall()
+    orows = "".join(f"<tr><td>{E(o['at'])}</td><td>{E(o['actor'])}</td><td>{E(o['detail'])}</td></tr>" for o in ovr)
     rows = "".join(f"<tr><td>{a['stage']}</td><td>{E(a['role'])}</td><td>{E(a['outcome'])}</td><td>{E(a['comment'])}</td></tr>" for a in appr)
     irows = "".join(f"<tr><td>{E(i['at'])}</td><td>{E(i['title'])}</td><td>{E(i['severity'])}</td><td>{E(i['status'])}</td></tr>" for i in inc)
     arows = "".join(f"<tr><td>{E(a['finding'])}</td><td>{E(a['action'])}</td><td>{E(a['owner'])}</td><td>{E(a['due'])}</td><td>{E(a['status'])}</td></tr>" for a in acts)
+    ua_line = f"<p><b>Unanswered questions:</b> {int(intake['unanswered_count'])}</p>" if "unanswered_count" in intake else ""
     fu = "".join(f"<li><b>{E(q)}</b><br>{E(a)}</li>" for q, a in intake.get("follow_up", {}).items())
     return f"""<html><head><meta charset='utf-8'><title>{E(u['code'])}</title>
 <style>body{{font-family:Arial;margin:40px;color:#1f2937}} td,th{{border:1px solid #ccc;padding:6px;text-align:left}} table{{border-collapse:collapse;width:100%}}
-.cover{{background:#1f2933;color:white;padding:28px;border-radius:12px}} .tier{{display:inline-block;padding:4px 14px;border-radius:999px;color:white;font-weight:bold;background:{TIER_COL.get(u['tier'],'#555')}}}</style></head><body>
+.cover{{background:#0B1F3A;color:white;padding:28px;border-radius:12px}} .tier{{display:inline-block;padding:4px 14px;border-radius:999px;color:white;font-weight:bold;background:{TIER_COL.get(u['tier'],'#555')}}}</style></head><body>
 <div class='cover'><small>GovernAI AI System Assessment</small><h1>{E(u['code'])} - {E(u['name'])}</h1><span class='tier'>{TIER_LABEL.get(u['tier'], u['tier'].upper())}</span></div>
 <p><b>Business unit:</b> {E(u['bu'])} | <b>Model owner:</b> {E(intake.get('model_owner') or 'not named')} | <b>Tier:</b> {TIER_LABEL.get(u['tier'], u['tier'].upper())} (score {risk['total']}/100) | <b>Stage:</b> {u['stage']} {STAGES[u['stage']-1]} | <b>Status:</b> {u['status']} | <b>Next review:</b> {u['next_review'] or '-'}</p>
 <h2>Purpose</h2><p>{E(intake.get('purpose',''))}</p>
 <h2>Why this tier</h2><ul>{''.join('<li>'+E(r)+'</li>' for r in risk['reasons'])}</ul>
 <h2>Laws in scope</h2><p>{', '.join(json.loads(u['regs']))}</p>
-<h2>Use-case questions</h2><ul>{fu or '<li>None recorded</li>'}</ul>
+<h2>Use-case questions</h2>{ua_line}<ul>{fu or '<li>None recorded</li>'}</ul>
 <h2>Approvals</h2><table><tr><th>Stage</th><th>Role</th><th>Outcome</th><th>Comment</th></tr>{rows}</table>
+<h2>Gate overrides</h2>{('<table><tr><th>Date</th><th>By</th><th>Reason</th></tr>' + orows + '</table>') if ovr else '<p>None</p>'}
 <h2>Actions</h2><table><tr><th>Finding</th><th>Action</th><th>Owner</th><th>Due</th><th>Status</th></tr>{arows}</table>
 <h2>Incidents</h2><table><tr><th>Date</th><th>Title</th><th>Severity</th><th>Status</th></tr>{irows}</table>
 <h2>Latest AI screening</h2><pre style='white-space:pre-wrap'>{E(scr['note']) if scr else 'Not run'}</pre>
@@ -725,15 +728,45 @@ def report_html(u, c):
 <p><i>AI-assisted risk screening, not legal advice. Generated {now()}.</i></p></body></html>"""
 
 # ---------- pages ----------
+ROLE_INFO = {
+    "submitter": ("Submitter", "Register AI systems and track them, and respond to returned items."),
+    "model_owner": ("Model owner", "Own a system and sign off each stage as its accountable owner."),
+    "privacy_reviewer": ("Privacy reviewer", "Review personal data use and sign off Limited and High risk gates."),
+    "legal_reviewer": ("Legal reviewer", "Approve high-risk gates and review legal findings."),
+    "risk_reviewer": ("Risk reviewer", "Review risk at Limited and High gates and approve incident closure."),
+    "review_board": ("Review board", "Give final sign-off at high-risk gates."),
+    "governance_admin": ("Governance admin", "Oversee everything, reopen returned systems, override a gate with a logged reason and read the audit log."),
+}
+_APPROVER_PAGES = ["Dashboard", "AI Systems Register", "My review queue", "Alerts"]
+ROLE_PAGES = {r: _APPROVER_PAGES for r in ROLES}
+ROLE_PAGES["submitter"] = ["Dashboard", "Register a use case", "AI Systems Register", "My submissions", "Alerts"]
+ROLE_PAGES["governance_admin"] = ["Dashboard", "Register a use case", "AI Systems Register", "My review queue", "Alerts", "Audit log"]
+
 def landing():
     st.markdown(CSS, unsafe_allow_html=True)
+    role = st.session_state.get("role")
+    if role not in ROLES: role = None
+    if role:
+        st.markdown(f"<style>.st-key-rc_{role} {{background:#E6F4F1 !important; border:2px solid #0F766E !important;}}</style>", unsafe_allow_html=True)
+    n_fw = len({r[0] for r in REGS})
     st.markdown("<div class='hero'><div class='eyebrow'>Responsible AI governance</div><h1>GovernAI</h1>"
-                "<p>One place to register every AI system, classify its risk with transparent rules, screen it against "
-                "the laws and frameworks you choose, such as the EU AI Act, GDPR, DPDP Act, NIST AI RMF and ISO 42001, and take it through approval gates with a full audit trail.</p>"
-                "<div class='stats'><div><b>20</b><span>Frameworks</span></div><div><b>47</b><span>Legal provisions</span></div>"
-                "<div><b>10</b><span>Lifecycle stages</span></div><div><b>4</b><span>Risk tiers</span></div></div></div>",
+                "<p>Register every AI system, score its risk with transparent rules, screen it against the laws you choose "
+                "and take it through approval gates with a full audit trail.</p>"
+                f"<div class='stats'><div class='chip'><b>{n_fw}</b><span>Frameworks</span></div>"
+                f"<div class='chip'><b>{len(REGS)}</b><span>Legal provisions</span></div>"
+                f"<div class='chip'><b>{len(STAGES)}</b><span>Lifecycle stages</span></div>"
+                f"<div class='chip'><b>{len(TIER_ORDER)}</b><span>Risk tiers</span></div></div></div>",
                 unsafe_allow_html=True)
-    st.write("")
+    st.markdown("<div class='sect'>Choose your role</div><div class='sectsub'>What you can see and do in the app depends on the role you pick.</div>", unsafe_allow_html=True)
+    cols = list(st.columns(4)) + list(st.columns(4))[:3]
+    for col, r in zip(cols, ROLES):
+        with col:
+            with st.container(key=f"rc_{r}"):
+                st.markdown(f"<div class='rc-name'>{E(ROLE_INFO[r][0])}</div><div class='rc-line'>{E(ROLE_INFO[r][1])}</div>", unsafe_allow_html=True)
+                if st.button("Selected" if r == role else "Choose", key=f"pick_{r}", type="primary" if r == role else "secondary", use_container_width=True):
+                    st.session_state["role"] = r; st.rerun()
+    st.markdown("<div class='demo-note'>This is a demo role switcher, not real authentication. Anyone can pick any role, so it is not a security control.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sect'>How it works</div>", unsafe_allow_html=True)
     cols = st.columns(4)
     feats = [("01", "Register", "Describe a use case and get questions tailored to it."),
              ("02", "Classify", "Deterministic 0 to 100 score and the EU AI Act's four tiers, from Minimal to Unacceptable, with reasons."),
@@ -742,16 +775,47 @@ def landing():
     for col, (n, h, t) in zip(cols, feats):
         col.markdown(f"<div class='feat'><div class='n'>{n}</div><h4>{h}</h4><div class='t'>{t}</div></div>", unsafe_allow_html=True)
     st.write("")
-    if st.button("Enter GovernAI", type="primary"):
+    if st.button("Enter GovernAI", type="primary", disabled=role is None):
         st.session_state["entered"] = True; st.rerun()
+    if role is None:
+        st.caption("Choose a role to continue")
     st.caption("AI-assisted risk screening, not legal advice.")
 
-def collect_alerts(c, ucs):
+PRIVACY_WORDS = ("gdpr", "dpdp", "hipaa", "pdpa", "privacy", "data protection", "ccpa")
+
+def legal_finding(finding):
+    """Legal reviewers see an action only if its finding names a known law or framework.
+    Auto-created 'Rejected at stage ...' items and 'Submitter response' items are workflow
+    items, not legal findings, so they are excluded even if the text mentions a law."""
+    f = str(finding or "").strip().lower()
+    if not f or f.startswith(("rejected at stage", "submitter response")):
+        return False
+    return any(name.lower() in f for name in ALL_FRAMEWORKS)
+
+def submitter_ids(c):
+    """Ids of systems registered by the submitter role, from the audit log."""
+    return {r["uc"] for r in c.execute("select uc from audit where action='registered' and actor='submitter'").fetchall()}
+
+def collect_alerts(c, ucs, role=None):
+    """role=None returns the whole portfolio. A role sees only the alerts relevant to its job."""
     today = dt.date.today().isoformat()
     reviews = [u for u in ucs if u["next_review"] and u["next_review"] < today and u["status"] == "production"]
-    inc_all = c.execute("select i.id, i.title, i.severity, i.status, i.at, u.code, u.name from incidents i join use_cases u on u.id=i.uc where i.status='open' order by i.at desc").fetchall()
+    inc_all = c.execute("select i.id, i.uc, i.title, i.severity, i.status, i.at, u.code, u.name from incidents i join use_cases u on u.id=i.uc where i.status='open' order by i.at desc").fetchall()
     inc_high = [i for i in inc_all if i["severity"] in ("high", "critical")]
-    acts = c.execute("select a.action, a.owner, a.due, u.code, u.name from actions a join use_cases u on u.id=a.uc where a.status='open' and a.due < ? order by a.due", (today,)).fetchall()
+    acts = c.execute("select a.uc, a.action, a.finding, a.owner, a.due, u.code, u.name from actions a join use_cases u on u.id=a.uc where a.status='open' and a.due < ? order by a.due", (today,)).fetchall()
+    if role in ("privacy_reviewer", "legal_reviewer"):
+        reviews = []                                   # periodic reviews are owner and risk work
+        if role == "privacy_reviewer":
+            inc_high = [i for i in inc_high if (c.execute("select root_cause from incidents where id=?", (i["id"],)).fetchone() or {"root_cause": ""})["root_cause"] == "data"]
+            acts = [a for a in acts if any(w in str(a["finding"]).lower() for w in PRIVACY_WORDS)]
+        else:
+            inc_high = []                              # legal sees law-related actions only
+            acts = [a for a in acts if legal_finding(a["finding"])]
+    elif role == "submitter":
+        mine = submitter_ids(c)                        # a submitter sees alerts for the systems they registered
+        reviews = [u for u in reviews if u["id"] in mine]
+        inc_high = [i for i in inc_high if i["uc"] in mine]
+        acts = [a for a in acts if a["uc"] in mine]
     return dict(reviews=reviews, incidents=inc_high, incidents_all=inc_all, actions=acts,
                 total=len(reviews) + len(inc_high) + len(acts))
 
@@ -759,10 +823,10 @@ def alert_card(kind, title, sub, meta):
     return (f"<div class='acard {kind}'><div class='aico'></div><div class='abody'><div class='atitle'>{E(title)}</div>"
             f"<div class='asub'>{E(sub)}</div></div><div class='ameta'>{E(meta)}</div></div>")
 
-def page_alerts(c, ucs):
+def page_alerts(c, ucs, role):
     st.title("Alerts")
-    st.caption("Things that need someone's attention. Nothing here changes any data.")
-    al = collect_alerts(c, ucs)
+    st.caption(f"Alerts relevant to the {role} role. Use Switch role in the sidebar to see another role's view. Nothing here changes any data.")
+    al = collect_alerts(c, ucs, role)
     if al["total"] == 0:
         st.markdown("<div class='allclear'><div class='bigtick'>&#10003;</div><h3>All clear</h3><p>No overdue reviews, open high-severity incidents or overdue actions.</p></div>", unsafe_allow_html=True)
         return
@@ -782,6 +846,16 @@ def page_alerts(c, ucs):
             days = (dt.date.today() - dt.date.fromisoformat(x["due"])).days
             st.markdown(alert_card("violet", f"{x['code']}  {x['action']}", f"Owner {x['owner']} | due {x['due']}", f"{days} days late"), unsafe_allow_html=True)
 
+def waiting_approvals(c, ucs):
+    """Approvals still missing across all systems, counted the same way as the review queues."""
+    n = 0
+    for u in ucs:
+        if u["status"] not in ("in_review", "production"): continue
+        for role in approvers(u["stage"], u["tier"]):
+            r = c.execute("select 1 from approvals where uc=? and stage=? and role=? and outcome!='rejected'", (u["id"], u["stage"], role)).fetchone()
+            if not r: n += 1
+    return n
+
 def page_dashboard(c, ucs):
     st.title("Dashboard")
     st.caption("Portfolio view of every AI system and its risk. Overdue items are on the Alerts page.")
@@ -792,11 +866,13 @@ def page_dashboard(c, ucs):
     al = collect_alerts(c, ucs)
     hp = int(df["tier"].isin(["high", "prohibited"]).sum())
     st.markdown("<div class='kpis'>" +
-                kpi("AI systems", len(df), "#1f2933", "") +
+                kpi("AI systems", len(df), "#0B1F3A", "") +
                 kpi("High and above", hp, "#b42318", "") +
                 kpi("In production", int((df["status"] == "production").sum()), "#2e7d5b", "") +
-                kpi("Open alerts", al["total"], "#c2410c", "") +
-                kpi("Open incidents", len(al["incidents_all"]), "#5b3a8c", "") + "</div>", unsafe_allow_html=True)
+                kpi("Open alerts", al["total"], "#0F766E", "") +
+                kpi("Open incidents", len(al["incidents_all"]), "#5b3a8c", "") +
+                kpi("Overrides", c.execute("select count(*) as n from audit where action='gate_override'").fetchone()["n"], "#0B1F3A", "") + "</div>", unsafe_allow_html=True)
+    st.caption(f"Approvals waiting: {waiting_approvals(c, ucs)}")
     st.markdown("<div class='legend'><b>How tiers work.</b> "
                 + " &nbsp;|&nbsp; ".join(f"{badge(t)} {TIER_MEANING[t]}" for t in TIER_ORDER[::-1]) + "</div>", unsafe_allow_html=True)
     tiers = [t for t in TIER_ORDER[::-1]]
@@ -804,15 +880,15 @@ def page_dashboard(c, ucs):
     td = df["tier"].value_counts().rename_axis("tier").reset_index(name="count")
     td["label"] = td["tier"].map(TIER_LABEL)
     a.subheader("Risk tiers")
-    _arc = alt.Chart(td).mark_arc(innerRadius=70, outerRadius=105, stroke="#ffffff", strokeWidth=3, cornerRadius=4).encode(
+    _arc = alt.Chart(td).mark_arc(innerRadius=70, outerRadius=105, stroke="#F5F3EF", strokeWidth=3, cornerRadius=4).encode(
         theta="count:Q", color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers]), legend=alt.Legend(title=None, orient="right")),
         tooltip=["label", "count"])
-    _mid = alt.Chart(pd.DataFrame({"t": [str(len(df))]})).mark_text(size=34, fontWeight="bold", color="#111827").encode(text="t:N")
+    _mid = alt.Chart(pd.DataFrame({"t": [str(len(df))]})).mark_text(size=34, fontWeight="bold", color="#0B1F3A").encode(text="t:N")
     a.altair_chart(style_chart(_arc + _mid), use_container_width=True)
     sd = df["stage"].value_counts().rename_axis("stage").reset_index(name="count")
     sd["stage_name"] = sd["stage"].map(lambda i: f"{i}. {STAGES[int(i)-1]}")
     b.subheader("Systems by lifecycle stage")
-    b.altair_chart(style_chart(alt.Chart(sd).mark_bar(color="#374151", cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=18).encode(
+    b.altair_chart(style_chart(alt.Chart(sd).mark_bar(color="#0B1F3A", cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=18).encode(
         x=alt.X("count:Q", title=None, axis=alt.Axis(tickMinStep=1)), y=alt.Y("stage_name:N", sort=[f"{i}. {s}" for i, s in enumerate(STAGES, 1)], title=None),
         tooltip=["stage_name", "count"])), use_container_width=True)
 
@@ -828,7 +904,7 @@ def page_dashboard(c, ucs):
         color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers]), legend=None),
         tooltip=["code", "name", "score", "label"])), use_container_width=True)
     b2.subheader("Score vs lifecycle stage")
-    b2.altair_chart(style_chart(alt.Chart(df).mark_circle(size=150, opacity=.9, stroke="#ffffff", strokeWidth=1.5).encode(
+    b2.altair_chart(style_chart(alt.Chart(df).mark_circle(size=150, opacity=.9, stroke="#F5F3EF", strokeWidth=1.5).encode(
         x=alt.X("stage:Q", scale=alt.Scale(domain=[0.5, 10.5]), title="Lifecycle stage", axis=alt.Axis(tickMinStep=1)),
         y=alt.Y("score:Q", scale=alt.Scale(domain=[0, 100]), title="Risk score"),
         color=alt.Color("label:N", scale=alt.Scale(domain=[TIER_LABEL[t] for t in tiers], range=[TIER_COL[t] for t in tiers]), legend=alt.Legend(title="Tier")),
@@ -839,15 +915,15 @@ def page_dashboard(c, ucs):
     if reg_rows:
         rc = pd.DataFrame(reg_rows).value_counts().reset_index(name="systems")
         st.subheader("Regulation coverage: how many systems each law applies to")
-        st.altair_chart(style_chart(alt.Chart(rc).mark_bar(color="#6b7280", cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=14).encode(
+        st.altair_chart(style_chart(alt.Chart(rc).mark_bar(color="#0F766E", cornerRadiusTopRight=6, cornerRadiusBottomRight=6, height=14).encode(
             x=alt.X("systems:Q", title="Systems in scope", axis=alt.Axis(tickMinStep=1)), y=alt.Y("regime:N", sort="-x", title=None),
             tooltip=["regime", "systems"])), use_container_width=True)
 
     st.subheader("Business unit x risk tier")
     hm = df.groupby(["bu", "label"]).size().reset_index(name="count")
-    st.altair_chart(style_chart(alt.Chart(hm).mark_rect(stroke="#ffffff", strokeWidth=3, cornerRadius=3).encode(
+    st.altair_chart(style_chart(alt.Chart(hm).mark_rect(stroke="#F5F3EF", strokeWidth=3, cornerRadius=3).encode(
         x=alt.X("label:N", sort=[TIER_LABEL[t] for t in tiers], title=None), y=alt.Y("bu:N", title=None),
-        color=alt.Color("count:Q", scale=alt.Scale(range=["#e5e7eb", "#c2410c"]), legend=None), tooltip=["bu", "label", "count"])), use_container_width=True)
+        color=alt.Color("count:Q", scale=alt.Scale(range=["#E6F4F1", "#0F766E"]), legend=None), tooltip=["bu", "label", "count"])), use_container_width=True)
 
 ALL_FRAMEWORKS = sorted({r[0] for r in REGS})
 
@@ -880,14 +956,22 @@ def page_register(c, role):
         if not str(desc).strip():
             st.error("Describe the use case first.")
         else:
-            qs, src = generate_questions(desc, domain)
+            with st.spinner("Reading your use case and writing questions..."):
+                qs, src = generate_questions(desc, domain, geos, data)
+            if not qs:
+                st.error(f"{src}. Please try again in a moment.")
             st.session_state["qs"] = qs; st.session_state["qsrc"] = src
     qs = st.session_state.get("qs", [])
     if not qs:
         return
-    st.info(f"Questions from {st.session_state.get('qsrc')}")
+    st.info(f"{len(qs)} questions written for this use case by {st.session_state.get('qsrc')}")
     with st.form("intake"):
-        answers = {q: st.text_area(q, key="q_" + str(i)) for i, q in enumerate(qs)}
+        answers = {}
+        for i, (q, kind) in enumerate(qs):
+            if kind == "yn":
+                answers[q] = st.radio(q, ["Not answered", "Yes", "No"], horizontal=True, key="q_" + str(i))
+            else:
+                answers[q] = st.text_area(q, key="q_" + str(i))
         build = st.selectbox("Classification", ["build", "buy", "configure", "integrate"])
         model = st.text_input("Model / provider / version")
         owner = st.text_input("Model owner (name of accountable person)")
@@ -899,16 +983,20 @@ def page_register(c, role):
         trig = [t for t in TRIGGERS if st.checkbox(t, key="t_" + t)]
         st.markdown("**Risk dimensions (1 = low, 3 = high)**")
         scores = {d: st.slider(d, 1, 3, 1) for d in DIMS}
+        allow_blank = st.checkbox("Submit with unanswered questions (will be flagged)", key="allow_blank")
         ok = st.form_submit_button("Submit and classify")
     if ok:
         if not str(name).strip():
             st.error("System name is required.")
         elif not picked:
             st.error("Choose at least one framework in scope.")
+        elif (unanswered := sum(1 for a in answers.values() if not str(a).strip() or a == "Not answered")) and not allow_blank:
+            st.error(f"{unanswered} of {len(answers)} governance questions are unanswered. Answer them, or tick "
+                     "'Submit with unanswered questions (will be flagged)' to register anyway.")
         else:
             intake = dict(purpose=desc, domain=domain, build=build, model=model, geos=geos, data=data,
                           automation=auto, misuse=misuse, follow_up=answers, model_owner=str(owner).strip(),
-                          frameworks=list(picked))
+                          frameworks=list(picked), unanswered_count=unanswered)
             _, code, tier, total, reasons, laws = insert_use_case(c, name.strip(), bu, intake, proh, trig, scores, role)
             st.markdown(f"### {E(code)} registered {badge(tier)}", unsafe_allow_html=True)
             st.write(f"Risk score {total}/100. {TIER_MEANING[tier]}")
@@ -993,15 +1081,37 @@ def page_detail(c, u, role):
             if val != cur:
                 c.execute("insert or replace into checklist values(?,?,?,?)", (u["id"], u["stage"], item, int(val)))
                 c.commit(); log(role, "checklist", u["id"], f"{item}={val}"); st.rerun()
-        st.write("Required approvers: " + (", ".join(approvers(u["stage"], u["tier"])) or "none"))
+        req = approvers(u["stage"], u["tier"])
+        st.write("Required approvers: " + (", ".join(req) or "none"))
+        if req:
+            got = 0
+            for r_ in req:
+                x = c.execute("select outcome from approvals where uc=? and stage=? and role=?", (u["id"], u["stage"], r_)).fetchone()
+                if x and x["outcome"] != "rejected": got += 1
+            st.caption(f"{got} of {len(req)} approvals received at this {'gate' if u['stage'] in GATE_STAGES else 'stage'}")
         b = blockers(u)
         if b:
             st.warning("Blocking items:")
             for x in b: st.write("- " + x)
             pend = [x.split(": ", 1)[1] for x in b if x.startswith("Approval required")]
             if pend:
-                st.info("To give an approval, switch 'Acting as' in the sidebar to " + ", ".join(pend)
+                st.info("To give an approval, use Switch role in the sidebar to become " + ", ".join(pend)
                         + ", open 'My review queue' and submit the decision. Then come back here and advance the stage.")
+            if pend and role == "governance_admin":
+                st.markdown("**Override gate**")
+                st.caption("Records an approval with conditions for every missing role. The reason is logged and shown in the assessment report. Checklist items still have to be completed.")
+                with st.form(f"ovr_{u['id']}"):
+                    why = st.text_area("Reason for override (at least 15 characters)")
+                    go = st.form_submit_button("Override gate")
+                if go:
+                    reason = str(why).strip()
+                    if len(reason) < 15:
+                        st.error("Give a written reason of at least 15 characters.")
+                    else:
+                        for r_ in pend:
+                            c.execute("insert or replace into approvals values(?,?,?,?,?,?)",
+                                      (u["id"], u["stage"], r_, "approved_with_conditions", f"OVERRIDE by governance_admin: {reason}", now()))
+                        c.commit(); log(role, "gate_override", u["id"], f"stage {u['stage']}, roles {', '.join(pend)}: {reason}"); st.rerun()
         else:
             st.success("All gate criteria met.")
         if st.button("Advance stage", disabled=bool(b)):
@@ -1094,10 +1204,11 @@ def page_detail(c, u, role):
         elif sub and str(d).strip():
             c.execute("insert into changes(uc,description,material,at) values(?,?,?,?)", (u["id"], d, int(mat), dt.date.today().isoformat()))
             if mat:
-                c.execute("update use_cases set stage=2, status='in_review' where id=?", (u["id"],))
+                c.execute("update use_cases set stage=2, status='in_review', next_review=NULL where id=?", (u["id"],))
                 c.execute("delete from approvals where uc=?", (u["id"],))
                 c.execute("delete from checklist where uc=? and stage>=2", (u["id"],))
-            c.commit(); log(role, "change_request", u["id"], f"material={mat}"); st.rerun()
+            c.commit()
+            log(role, "change_request", u["id"], f"material={mat}" + ("; next review date cleared" if mat else "")); st.rerun()
         with st.form("inc"):
             ti = st.text_input("Incident title")
             sev = st.selectbox("Severity", ["low", "medium", "high", "critical"])
@@ -1119,7 +1230,40 @@ def page_detail(c, u, role):
         st.dataframe(qdf(c, "select stage,role,outcome,comment,at from approvals where uc=? order by stage", (u["id"],)), use_container_width=True)
         st.dataframe(qdf(c, "select * from audit where uc=? order by at desc", (u["id"],)), use_container_width=True)
 
+def page_submissions(c, ucs, role):
+    st.title("My submissions")
+    st.caption("Submitters track their systems here and respond to returned items. A submitter cannot approve, reject or reopen anything.")
+    ids = submitter_ids(c)
+    mine = [u for u in ucs if u["id"] in ids]
+    if not mine:
+        st.info("You have not registered any systems yet. Use 'Register a use case' to add one."); return
+    rows = []
+    for u in mine:
+        b = blockers(u)
+        rows.append({"Code": u["code"], "System": u["name"], "Tier": TIER_LABEL.get(u["tier"], u["tier"]),
+                     "Stage": f"{u['stage']}. {STAGES[u['stage']-1]}", "Status": u["status"],
+                     "First blocker": b[0] if b else "None"})
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    returned = [u for u in mine if u["status"] == "returned"]
+    if returned:
+        st.subheader("Respond to returned systems")
+        st.caption("Say what you have fixed or ask a question. Your reply is added to the system's actions for the reviewers to see.")
+    for u in returned:
+        with st.form(f"resp_{u['id']}"):
+            txt = st.text_area(f"Response for {u['code']} - {u['name']}")
+            sent = st.form_submit_button("Send response")
+        if sent:
+            if not str(txt).strip():
+                st.error("Write a response first.")
+            else:
+                c.execute("insert into actions(uc,finding,action,owner,due,status,at) values(?,?,?,?,?,?,?)",
+                          (u["id"], "Submitter response", txt.strip(), role,
+                           (dt.date.today() + dt.timedelta(days=14)).isoformat(), "open", now()))
+                c.commit(); log(role, "submitter_response", u["id"], txt.strip()); st.rerun()
+
 def page_queue(c, ucs, role):
+    if role == "submitter":
+        return page_submissions(c, ucs, role)
     st.title(f"Review queue - {role}")
     mine = [u for u in ucs if u["status"] in ("in_review", "production") and role in approvers(u["stage"], u["tier"])
             and not c.execute("select 1 from approvals where uc=? and stage=? and role=? and outcome!='rejected'", (u["id"], u["stage"], role)).fetchone()]
@@ -1131,14 +1275,23 @@ def page_queue(c, ucs, role):
             if st.button("Submit decision", key=f"b{u['id']}"):
                 if out == "approved_with_conditions" and not str(com).strip():
                     st.error("Conditions are required.")
+                elif out == "rejected" and not str(com).strip():
+                    st.error("State what must be fixed. It becomes the remediation action the owner has to complete before reopening.")
                 else:
                     c.execute("insert or replace into approvals values(?,?,?,?,?,?)", (u["id"], u["stage"], role, out, com, now()))
-                    if out == "rejected": c.execute("update use_cases set status='returned' where id=?", (u["id"],))
+                    if out == "rejected":
+                        c.execute("update use_cases set status='returned' where id=?", (u["id"],))
+                        c.execute("insert into actions(uc,finding,action,owner,due,status,at) values(?,?,?,?,?,?,?)",
+                                  (u["id"], f"Rejected at stage {u['stage']} by {role}", com.strip(), "Unassigned",
+                                   (dt.date.today() + dt.timedelta(days=14)).isoformat(), "open", now()))
                     c.commit(); log(role, f"approval_{out}", u["id"], com); st.rerun()
     if role == "governance_admin":
         st.subheader("Returned systems")
         for u in [x for x in ucs if x["status"] == "returned"]:
-            if st.button(f"Reopen {u['code']} after remediation", key=f"r{u['id']}"):
+            pending = c.execute("select count(*) as n from actions where uc=? and status='open' and finding like 'Rejected at stage%'", (u["id"],)).fetchone()["n"]
+            if pending:
+                st.caption(f"{u['code']}: {pending} remediation action(s) from the rejection are still open. Close them in the system's Actions tab first.")
+            if st.button(f"Reopen {u['code']} after remediation", key=f"r{u['id']}", disabled=bool(pending)):
                 c.execute("update use_cases set status='in_review' where id=?", (u["id"],))
                 c.execute("delete from approvals where uc=? and stage=? and outcome='rejected'", (u["id"], u["stage"]))
                 c.commit(); log(role, "reopened", u["id"]); st.rerun()
@@ -1146,28 +1299,42 @@ def page_queue(c, ucs, role):
 def main():
     st.set_page_config(page_title="GovernAI", layout="wide", page_icon="G")
     init_db()
-    if not st.session_state.get("entered"):
+    role = st.session_state.get("role")
+    if not st.session_state.get("entered") or role not in ROLES:
         return landing()
     st.markdown(CSS, unsafe_allow_html=True)
     c = db()
     ucs = [dict(r) for r in c.execute("select * from use_cases").fetchall()]
-    n_alerts = collect_alerts(c, ucs)["total"]
     st.sidebar.markdown("<div class='sb-brand'><div class='logo'>G</div><span>GovernAI</span></div>", unsafe_allow_html=True)
-    role = st.sidebar.selectbox("Acting as (demo role)", ROLES)
-    pages = ["Dashboard", "Register a use case", "AI Systems Register", "My review queue", f"Alerts ({n_alerts})" if n_alerts else "Alerts", "Audit log"]
-    choice = st.sidebar.radio("Go to", pages)
-    page = "Alerts" if choice.startswith("Alerts") else choice
+    st.sidebar.markdown(f"<div class='sb-role'>Role: <b>{E(ROLE_INFO[role][0])}</b></div>", unsafe_allow_html=True)
+    if st.sidebar.button("Switch role"):
+        for k in ("role", "entered", "nav", "open_id"):
+            st.session_state.pop(k, None)
+        st.rerun()
+    n_alerts = collect_alerts(c, ucs, role)["total"]
+    allowed = ROLE_PAGES[role]
+    # a page this role cannot use (for example left over in session state) falls back to the Dashboard
+    denied = st.session_state.get("nav")
+    if denied is not None and denied not in allowed:
+        st.session_state.pop("nav", None)
+    else:
+        denied = None
+    page = st.sidebar.radio("Go to", allowed, key="nav", format_func=lambda p: f"Alerts ({n_alerts})" if p == "Alerts" and n_alerts else p)
+    if page not in allowed:
+        page = "Dashboard"
     if st.sidebar.button("Back to home"):
         st.session_state["entered"] = False; st.rerun()
     st.sidebar.caption("AI-assisted risk screening, not legal advice.")
     st.markdown(topbar(page, role), unsafe_allow_html=True)
+    if denied is not None:
+        st.info(f"The {ROLE_INFO[role][0]} role cannot open {denied}. Showing the Dashboard instead.")
     if page != "AI Systems Register":
         st.session_state["open_id"] = None
     if page == "Dashboard": page_dashboard(c, ucs)
     elif page == "Register a use case": page_register(c, role)
     elif page == "AI Systems Register": page_register_list(c, ucs, role)
-    elif page == "My review queue": page_queue(c, ucs, role)
-    elif page == "Alerts": page_alerts(c, ucs)
+    elif page in ("My review queue", "My submissions"): page_queue(c, ucs, role)
+    elif page == "Alerts": page_alerts(c, ucs, role)
     else:
         st.title("Audit log (append-only)")
         st.dataframe(qdf(c, "select * from audit order by at desc"), use_container_width=True)
