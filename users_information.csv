@@ -1,0 +1,13 @@
+username,password_hash,role,created_on
+alex.submitter,pbkdf2_sha256$310000$bafa13795e66d1c871faef0989384263$0f439e3edbe7bebfe675cbbcd9b7cbc4eabb83666abc8f6a77fe4c3339e0cf36,submitter,2026-10-26
+jamie.submitter,qwerty_uiop,submitter,01-01-2026
+casey.owner,qwerty_uiop,model_owner,01-01-2026
+taylor.owner,qwerty_uiop,model_owner,01-01-2026
+priya.privacy,qwerty_uiop,privacy_reviewer,01-01-2026
+morgan.legal,qwerty_uiop,legal_reviewer,01-01-2026
+riley.risk,qwerty_uiop,risk_reviewer,01-01-2026
+drew.risk,qwerty_uiop,risk_reviewer,01-01-2026
+sam.board,qwerty_uiop,review_board,01-01-2026
+robin.admin,qwerty_uiop,governance_admin,01-01-2026
+blake.submitter,qwerty_uiop,submitter,01-01-2026
+quinn.owner,pbkdf2_sha256$310000$32c69fa2bd4144fd2f821c014c0b10f8$aaac7c5f833e186eba6ad7fe7c4c35632c6d958898dd3d87c934e559b5503e2e,model_owner,2026-10-27
