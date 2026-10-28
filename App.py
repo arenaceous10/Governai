@@ -1125,9 +1125,6 @@ div[data-testid="stAlert"] {border-radius:8px;}
 .chip span {font-size:.76rem; color:#E2E8F0; text-transform:uppercase; letter-spacing:.08em;}
 .sect {margin:2rem 0 .2rem 0; font-size:1.3rem; font-weight:600; color:#0B1F3A;}
 .sectsub {color:#5B6472; font-size:.92rem; margin-bottom:.8rem;}
-[class*="st-key-rc_"] {background:#F5F3EF; border:1px solid #D9D4CA; border-radius:8px; padding:1rem 1.1rem 1rem 1.1rem;}
-.rc-name {font-weight:600; color:#0B1F3A; font-size:1.02rem; margin-bottom:.25rem;}
-.rc-line {color:#5B6472; font-size:.88rem; line-height:1.45; min-height:5.4em;}
 .feat {background:#F5F3EF; border:1px solid #D9D4CA; border-top:3px solid #0F766E; border-radius:8px; padding:1.3rem; min-height:11rem;}
 .feat .n {color:#0F766E !important; font-size:.85rem; font-weight:700; letter-spacing:.06em;}
 .feat h4 {margin:.5rem 0 .4rem 0; color:var(--ink) !important;}
@@ -1165,7 +1162,7 @@ def kpi(label, value, color="#0B1F3A", icon=""):
             f"<div class='v'>{value}</div><div class='l'>{label}</div></div>")
 
 def topbar(page, role):
-    return (f"<div class='topbar'><div class='brand'><div class='logo'>G</div>GovernAI</div>"
+    return (f"<div class='topbar'><div class='brand'><div class='logo'>G</div>AI Use-Case Hub</div>"
             f"<div class='crumb'><b>{E(page)}</b> &nbsp;/&nbsp; acting as <span class='pill'>{E(role)}</span></div></div>")
 
 def ring(u):
@@ -1218,7 +1215,7 @@ def report_html(u, c):
     return f"""<html><head><meta charset='utf-8'><title>{E(u['code'])}</title>
 <style>body{{font-family:Arial;margin:40px;color:#1f2937}} td,th{{border:1px solid #ccc;padding:6px;text-align:left}} table{{border-collapse:collapse;width:100%}}
 .cover{{background:#0B1F3A;color:white;padding:28px;border-radius:12px}} .tier{{display:inline-block;padding:4px 14px;border-radius:999px;color:white;font-weight:bold;background:{TIER_COL.get(u['tier'],'#555')}}}</style></head><body>
-<div class='cover'><small>GovernAI AI System Assessment</small><h1>{E(u['code'])} - {E(u['name'])}</h1><span class='tier'>{TIER_LABEL.get(u['tier'], u['tier'].upper())}</span></div>
+<div class='cover'><small>AI Use-Case Hub AI System Assessment</small><h1>{E(u['code'])} - {E(u['name'])}</h1><span class='tier'>{TIER_LABEL.get(u['tier'], u['tier'].upper())}</span></div>
 <p><b>Business unit:</b> {E(u['bu'])} | <b>Model owner:</b> {E(intake.get('model_owner') or 'not named')} | <b>Tier:</b> {TIER_LABEL.get(u['tier'], u['tier'].upper())} (score {risk['total']}/100) | <b>Stage:</b> {u['stage']} {stage_title(u['stage'])} | <b>Status:</b> {u['status']} | <b>Next review:</b> {u['next_review'] or '-'}</p>
 <h2>Purpose</h2><p>{E(intake.get('purpose',''))}</p>
 <h2>Why this tier</h2><ul>{''.join('<li>'+E(r)+'</li>' for r in risk['reasons'])}</ul>
@@ -1259,10 +1256,8 @@ def landing():
     st.markdown(CSS, unsafe_allow_html=True)
     role = st.session_state.get("role")
     if role not in ROLES: role = None
-    if role:
-        st.markdown(f"<style>.st-key-rc_{role} {{background:#E6F4F1 !important; border:2px solid #0F766E !important;}}</style>", unsafe_allow_html=True)
     n_fw = len({r[0] for r in REGS})
-    st.markdown("<div class='hero'><div class='eyebrow'>Responsible AI governance</div><h1>GovernAI</h1>"
+    st.markdown("<div class='hero'><div class='eyebrow'>Responsible AI governance</div><h1>AI Use-Case Hub</h1>"
                 "<p>Register every AI system, score its risk with transparent rules, screen it against the laws you choose "
                 "and take it through approval gates with a full audit trail.</p>"
                 f"<div class='stats'><div class='chip'><b>{n_fw}</b><span>Frameworks</span></div>"
@@ -1271,13 +1266,16 @@ def landing():
                 f"<div class='chip'><b>{len(TIER_ORDER)}</b><span>Risk tiers</span></div></div></div>",
                 unsafe_allow_html=True)
     st.markdown("<div class='sect'>Choose your role</div><div class='sectsub'>What you can see and do in the app depends on the role you pick.</div>", unsafe_allow_html=True)
-    cols = list(st.columns(4)) + list(st.columns(4))[:3]
-    for col, r in zip(cols, ROLES):
-        with col:
-            with st.container(key=f"rc_{r}"):
-                st.markdown(f"<div class='rc-name'>{E(ROLE_INFO[r][0])}</div><div class='rc-line'>{E(ROLE_INFO[r][1])}</div>", unsafe_allow_html=True)
-                if st.button("Selected" if r == role else "Choose", key=f"pick_{r}", type="primary" if r == role else "secondary", use_container_width=True):
-                    st.session_state["role"] = r; st.rerun()
+    names = {ROLE_INFO[r][0]: r for r in ROLES}
+    tips = "\n\n".join(f"{ROLE_INFO[r][0]}: {ROLE_INFO[r][1]}" for r in ROLES)
+    picked = st.selectbox("Select a role", list(names), index=list(names.values()).index(role) if role else None,
+                          placeholder="Select a role", help=tips, key="role_select")
+    if picked and names[picked] != role:
+        st.session_state["role"] = names[picked]; st.rerun()
+    if picked:
+        st.caption(ROLE_INFO[names[picked]][1])
+    if st.button("Enter AI Use-Case Hub", type="primary", disabled=role is None):
+        st.session_state["entered"] = True; st.rerun()
     st.markdown("<div class='demo-note'>This is a demo role switcher, not real authentication. Anyone can pick any role, so it is not a security control.</div>", unsafe_allow_html=True)
     st.markdown("<div class='sect'>How it works</div>", unsafe_allow_html=True)
     cols = st.columns(4)
@@ -1288,10 +1286,6 @@ def landing():
     for col, (n, h, t) in zip(cols, feats):
         col.markdown(f"<div class='feat'><div class='n'>{n}</div><h4>{h}</h4><div class='t'>{t}</div></div>", unsafe_allow_html=True)
     st.write("")
-    if st.button("Enter GovernAI", type="primary", disabled=role is None):
-        st.session_state["entered"] = True; st.rerun()
-    if role is None:
-        st.caption("Choose a role to continue")
     st.caption("AI-assisted risk screening, not legal advice.")
 
 PRIVACY_WORDS = ("gdpr", "dpdp", "hipaa", "pdpa", "privacy", "data protection", "ccpa")
@@ -2474,7 +2468,7 @@ def page_queue(c, ucs, role):
                 c.commit(); log(role, "reopened", u["id"]); st.rerun()
 
 def main():
-    st.set_page_config(page_title="GovernAI", layout="wide", page_icon="G")
+    st.set_page_config(page_title="AI Use-Case Hub", layout="wide", page_icon="G")
     init_db()
     role = st.session_state.get("role")
     if not st.session_state.get("entered") or role not in ROLES:
@@ -2482,7 +2476,7 @@ def main():
     st.markdown(CSS, unsafe_allow_html=True)
     c = db()
     ucs = [dict(r) for r in c.execute("select * from use_cases").fetchall()]
-    st.sidebar.markdown("<div class='sb-brand'><div class='logo'>G</div><span>GovernAI</span></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("<div class='sb-brand'><div class='logo'>G</div><span>AI Use-Case Hub</span></div>", unsafe_allow_html=True)
     st.sidebar.markdown(f"<div class='sb-role'>Role: <b>{E(ROLE_INFO[role][0])}</b></div>", unsafe_allow_html=True)
     if st.sidebar.button("Switch role"):
         for k in ("role", "entered", "nav", "open_id"):
