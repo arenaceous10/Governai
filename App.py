@@ -1162,7 +1162,7 @@ def kpi(label, value, color="#0B1F3A", icon=""):
             f"<div class='v'>{value}</div><div class='l'>{label}</div></div>")
 
 def topbar(page, role):
-    return (f"<div class='topbar'><div class='brand'><div class='logo'>G</div>AI Use-Case Hub</div>"
+    return (f"<div class='topbar'><div class='brand'><div class='logo'>G</div>Govern AI</div>"
             f"<div class='crumb'><b>{E(page)}</b> &nbsp;/&nbsp; acting as <span class='pill'>{E(role)}</span></div></div>")
 
 def ring(u):
@@ -1215,7 +1215,7 @@ def report_html(u, c):
     return f"""<html><head><meta charset='utf-8'><title>{E(u['code'])}</title>
 <style>body{{font-family:Arial;margin:40px;color:#1f2937}} td,th{{border:1px solid #ccc;padding:6px;text-align:left}} table{{border-collapse:collapse;width:100%}}
 .cover{{background:#0B1F3A;color:white;padding:28px;border-radius:12px}} .tier{{display:inline-block;padding:4px 14px;border-radius:999px;color:white;font-weight:bold;background:{TIER_COL.get(u['tier'],'#555')}}}</style></head><body>
-<div class='cover'><small>AI Use-Case Hub AI System Assessment</small><h1>{E(u['code'])} - {E(u['name'])}</h1><span class='tier'>{TIER_LABEL.get(u['tier'], u['tier'].upper())}</span></div>
+<div class='cover'><small>AI System Assessment</small><h1>{E(u['code'])} - {E(u['name'])}</h1><span class='tier'>{TIER_LABEL.get(u['tier'], u['tier'].upper())}</span></div>
 <p><b>Business unit:</b> {E(u['bu'])} | <b>Model owner:</b> {E(intake.get('model_owner') or 'not named')} | <b>Tier:</b> {TIER_LABEL.get(u['tier'], u['tier'].upper())} (score {risk['total']}/100) | <b>Stage:</b> {u['stage']} {stage_title(u['stage'])} | <b>Status:</b> {u['status']} | <b>Next review:</b> {u['next_review'] or '-'}</p>
 <h2>Purpose</h2><p>{E(intake.get('purpose',''))}</p>
 <h2>Why this tier</h2><ul>{''.join('<li>'+E(r)+'</li>' for r in risk['reasons'])}</ul>
@@ -1257,7 +1257,7 @@ def landing():
     role = st.session_state.get("role")
     if role not in ROLES: role = None
     n_fw = len({r[0] for r in REGS})
-    st.markdown("<div class='hero'><div class='eyebrow'>Responsible AI governance</div><h1>AI Use-Case Hub</h1>"
+    st.markdown("<div class='hero'><div class='eyebrow'>Responsible AI governance</div><h1>Govern AI</h1>"
                 "<p>Register every AI system, score its risk with transparent rules, screen it against the laws you choose "
                 "and take it through approval gates with a full audit trail.</p>"
                 f"<div class='stats'><div class='chip'><b>{n_fw}</b><span>Frameworks</span></div>"
@@ -1274,7 +1274,7 @@ def landing():
         st.session_state["role"] = names[picked]; st.rerun()
     if picked:
         st.caption(ROLE_INFO[names[picked]][1])
-    if st.button("Enter AI Use-Case Hub", type="primary", disabled=role is None):
+    if st.button("Enter Govern AI", type="primary", disabled=role is None):
         st.session_state["entered"] = True; st.rerun()
     st.markdown("<div class='demo-note'>This is a demo role switcher, not real authentication. Anyone can pick any role, so it is not a security control.</div>", unsafe_allow_html=True)
     st.markdown("<div class='sect'>How it works</div>", unsafe_allow_html=True)
@@ -2468,7 +2468,7 @@ def page_queue(c, ucs, role):
                 c.commit(); log(role, "reopened", u["id"]); st.rerun()
 
 def main():
-    st.set_page_config(page_title="AI Use-Case Hub", layout="wide", page_icon="G")
+    st.set_page_config(page_title="Govern AI", layout="wide", page_icon="G")
     init_db()
     role = st.session_state.get("role")
     if not st.session_state.get("entered") or role not in ROLES:
@@ -2476,7 +2476,7 @@ def main():
     st.markdown(CSS, unsafe_allow_html=True)
     c = db()
     ucs = [dict(r) for r in c.execute("select * from use_cases").fetchall()]
-    st.sidebar.markdown("<div class='sb-brand'><div class='logo'>G</div><span>AI Use-Case Hub</span></div>", unsafe_allow_html=True)
+    st.sidebar.markdown("<div class='sb-brand'><div class='logo'>G</div><span>Govern AI</span></div>", unsafe_allow_html=True)
     st.sidebar.markdown(f"<div class='sb-role'>Role: <b>{E(ROLE_INFO[role][0])}</b></div>", unsafe_allow_html=True)
     if st.sidebar.button("Switch role"):
         for k in ("role", "entered", "nav", "open_id"):
